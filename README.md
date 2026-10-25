@@ -1,8 +1,8 @@
 ﻿<p align="center"><img src="public/largeIcon.png" alt="Hearth icon" width="120"></p>
 
-# Hearth for WebOS: a fast, calm home screen for LG webOS TVs
+# Hearth for WebOS: a fast, calm home screen for webOS TVs
 
-**Hearth for WebOS** is made only for LG TVs that run webOS (it is not an Android TV app). It targets **webOS 3/4 and it is forward compatible with newer versions** and is **designed for speed**: it starts almost instantly, scrolls smoothly and everything is adjustable from the remote. It replaces the busy LG home screen with something quiet: a **clock with the date and the weather**, **your apps and TV inputs in one row** along the bottom, and a background that is plain **OLED black**, a **picture**, or a **slideshow** (your own photos or the bundled nature photos).
+**Hearth for WebOS** is made only for TVs that run webOS (it is not an Android TV app). It targets **webOS 3/4 and it is forward compatible with newer versions** and is **designed for speed**: it starts almost instantly, scrolls smoothly and everything is adjustable from the remote. It replaces the busy home screen with something quiet: a **clock with the date and the weather**, **your apps and TV inputs in one row** along the bottom, and a background that is plain **OLED black**, a **picture**, or a **slideshow** (your own photos or the bundled nature photos).
 
 It is a normal webOS app (app ID `tld.my.customlauncher`). On a rooted TV it can also become the screen the TV boots into and the one the Home button opens.
 
