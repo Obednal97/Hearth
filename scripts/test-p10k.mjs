@@ -1,0 +1,31 @@
+// Phase 10k: removed Options rows, Debug tab switch.   Run: npm test
+import {build} from 'esbuild';
+import {fileURLToPath} from 'node:url';
+import path from 'node:path';
+const dir = path.dirname(fileURLToPath(import.meta.url)) + '/';
+const src = path.resolve(dir, '../src') + '/';
+const out = path.resolve(dir, '../node_modules/.cache-p10k-test.mjs');
+await build({stdin: {contents: `export {THEMES, LIGHT_THEMES} from './theme/tokens'; export {optionsFor, applyPref, PREFS, ROOT_OPTIONS} from './lib/prefs'; export {DEFAULT_CONFIG, loadConfig} from './lib/storage';`, resolveDir: src, loader: 'ts'},
+	bundle: true, format: 'esm', platform: 'node', outfile: out, logLevel: 'silent', define: {'import.meta.glob': '__glob'}, banner: {js: 'const __glob = () => ({});'}});
+const a = await import(out);
+let fail = 0;
+const eq = (got, want, name) => { const ok = JSON.stringify(got) === JSON.stringify(want); console.log((ok ? 'ok   ' : 'FAIL ') + name + (ok ? '' : `\n   got  ${JSON.stringify(got)}\n   want ${JSON.stringify(want)}`)); if (!ok) fail++; };
+const ids = a.PREFS.map((p) => p.id);
+eq(['useHomebrew', 'closeHomeNow', 'useAsHome'].filter((i) => ids.indexOf(i) !== -1), [], 'live-list, close-now and alternative-method rows are gone');
+eq(ids.indexOf('closeHome'), -1, 'the "Close LG Home" row is gone');
+eq(a.ROOT_OPTIONS.slice().sort(), ['lgLogo', 'replaceHome', 'takeover', 'tvInput'], 'root-only rows are the remaining four (the SAM method replaced the boot row)');
+eq(a.DEFAULT_CONFIG.showDebug, false, 'the Debug tab is off by default');
+const row = a.optionsFor('options', a.DEFAULT_CONFIG).pop();
+eq([row.id, row.label], ['showDebug', 'Show the Debug tab'], 'its switch is the last Options row');
+eq(a.applyPref(a.DEFAULT_CONFIG, 'showDebug', 'ok').showDebug, true, 'OK turns it on');
+eq(a.applyPref(a.applyPref(a.DEFAULT_CONFIG, 'showDebug', 'ok'), 'showDebug', 'ok').showDebug, false, 'and off again');
+const store = {};
+globalThis.localStorage = {getItem: (k) => (k in store ? store[k] : null), setItem: (k, v) => { store[k] = String(v); }, removeItem: (k) => { delete store[k]; }};
+localStorage.setItem('customlauncher-config-v1', JSON.stringify({showDebug: true, closeHome: false, useHomebrew: false}));
+const c = a.loadConfig();
+eq([c.showDebug, c.closeHome, 'useHomebrew' in c], [true, false, false], 'saved settings load: the switch and the safety state stay, the old live-list setting is ignored');
+eq(a.loadConfig !== undefined && (localStorage.setItem('customlauncher-config-v1', '{}'), a.loadConfig().closeHome), true, 'LG Home is closed by default');
+for (const n of a.LIGHT_THEMES) eq([a.THEMES[n].scrimTop, a.THEMES[n].scrimMid, a.THEMES[n].scrimBottom], ['0', '0', '0'], `${n}: no pale shade (glow) over the wallpaper`);
+eq(a.THEMES.midnight.scrimBottom !== '0', true, 'dark themes keep their shade');
+console.log(fail ? `${fail} FAILED` : 'all ok');
+process.exit(fail ? 1 : 0);

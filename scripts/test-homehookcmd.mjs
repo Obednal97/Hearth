@@ -31,9 +31,9 @@ const hook = root + '/media/developer/launcher-homehook';
 const link = root + '/var/lib/webosbrew/init.d/48-launcher-homehook';
 const launcherDir = root + '/media/developer/apps/usr/palm/applications/tld.my.customlauncher';
 
-const runInstall = (boot) => {
+const runInstall = () => {
   let output = '';
-  const steps = h.installSteps(files, boot);
+  const steps = h.installSteps(files);
   for (let i = 0; i < steps.length; i++) {
     output = sh(h.withStatus(steps[i].command));
     if (i < steps.length - 1 && h.parseExit(output) !== 0) return {output, failedStep: steps[i].name};
@@ -42,12 +42,12 @@ const runInstall = (boot) => {
 };
 
 // launcher not installed yet -> refused
-eq(h.parseHookResult(runInstall(true).output), 'launcher-missing', 'install is refused while the launcher is not installed');
+eq(h.parseHookResult(runInstall().output), 'launcher-missing', 'install is refused while the launcher is not installed');
 mkdirSync(launcherDir, {recursive: true});
 writeFileSync(launcherDir + '/appinfo.json', '{}');
 
-// install with the boot link
-eq(h.parseHookResult(runInstall(true).output), 'applied', 'install works');
+// install (the boot link is always added)
+eq(h.parseHookResult(runInstall().output), 'applied', 'install works');
 eq(['watch.sh', 'apply.sh', 'stock.sh', 'diagnose.sh'].every((f) => readFileSync(hook + '/' + f, 'utf8') === files[f.replace('.sh', 'Sh')]), true, 'all four scripts were written byte for byte');
 eq(readFileSync(hook + '/version', 'utf8').trim(), h.HOOK_VERSION, 'the version was recorded');
 eq(sh(h.VERSION_COMMAND).trim(), h.HOOK_VERSION, 'the launcher can read the installed version back');
@@ -55,27 +55,20 @@ eq(existsSync(link), true, 'the boot link exists');
 eq(st(sh(h.STATUS_COMMAND)), '{"running":false,"linked":true}', 'status: linked (the watcher is not started in a dry run)');
 eq(h.parseHookResult(sh(h.APPLY_COMMAND)), 'applied', 'applying again works');
 
-// the boot link can be reversed on its own
-sh(h.LINK_OFF_COMMAND);
-eq([existsSync(link), existsSync(hook + '/watch.sh')].join(','), 'false,true', 'removing the boot link leaves the helper installed');
-eq(h.parseExit(sh(h.LINK_ON_COMMAND)), 0, 'the boot link can be added again');
-eq(existsSync(link), true, 'and it exists');
-eq(h.parseHookResult(runInstall(false).output), 'applied', 'installing without boot works');
-eq(existsSync(link), false, 'and removes an existing boot link');
-
-// the boot link can't be added when nothing is installed
-rmSync(hook, {recursive: true, force: true});
-eq(/files-missing/.test(sh(h.LINK_ON_COMMAND)) && !existsSync(link), true, 'no boot link is made without the helper files');
+// installing again keeps the link, and it is added if it was missing (an older install, or one removed by hand)
+sh(`rm -f '${link}'`);
+eq(h.parseHookResult(runInstall().output), 'applied', 'installing again works');
+eq(existsSync(link), true, 'and puts the boot link back if it was missing');
 
 // stock home request
-runInstall(true);
+runInstall();
 sh(h.STOCK_COMMAND);
 eq(existsSync(root + '/tmp/launcher-allow-stock-home'), true, 'the LG Home tile makes the watcher stand down');
 
 // stopping an older watcher: a real process whose pid is in the pid file
 const child = spawn('sleep', ['60'], {stdio: 'ignore', detached: true}); child.unref();
 writeFileSync(root + '/tmp/launcher-homehook-watch.pid', String(child.pid));
-const stopStep = h.installSteps(files, true).find((s) => s.name === 'stop an older watcher');
+const stopStep = h.installSteps(files).find((s) => s.name === 'stop an older watcher');
 sh(h.withStatus(stopStep.command));
 await new Promise((r) => setTimeout(r, 300));
 let alive = true; try { process.kill(child.pid, 0); } catch { alive = false; }
@@ -96,7 +89,7 @@ await new Promise((r) => setTimeout(r, 400));
 let lostAlive = true; try { process.kill(lost.pid, 0); } catch { lostAlive = false; }
 eq(lostAlive, false, 'a watcher with no pid file is found by its command line and stopped');
 // the files are replaced by moving, never written in place
-eq(h.installSteps(files, true).filter((st) => /watch\.sh/.test(st.command) && />+ '/.test(st.command)).every((st) => /watch\.sh\.new/.test(st.command)), true, 'watch.sh is written under a temporary name first');
+eq(h.installSteps(files).filter((st) => /watch\.sh/.test(st.command) && />+ '/.test(st.command)).every((st) => /watch\.sh\.new/.test(st.command)), true, 'watch.sh is written under a temporary name first');
 eq(existsSync(hook + '/watch.sh.new') || existsSync(hook + '/apply.sh.new'), false, 'no temporary files are left after an install');
 
 // removal
@@ -106,13 +99,13 @@ eq(st(sh(h.STATUS_COMMAND)), '{"running":false,"linked":false}', 'status: off af
 eq(h.parseHookResult(sh(h.APPLY_COMMAND)), 'files-missing', 'apply after removal does nothing');
 
 // the commands themselves
-const steps = h.installSteps(files, true);
+const steps = h.installSteps(files);
 eq(steps.some((s) => s.command.includes(files.watchSh.slice(0, 60))), false, 'file contents are carried as base64, never raw');
 eq(Math.max(...steps.map((s) => s.command.length)) < 4300, true, `every install step is a small command (largest ${Math.max(...steps.map((s) => s.command.length))} characters)`);
 // a failing step says which one and why
 mkdirSync(root + '/media/developer', {recursive: true});
 writeFileSync(hook, 'a file where the folder should be');
-const broken = runInstall(true);
+const broken = runInstall();
 eq(broken.failedStep, 'create the folder', 'a failing step is named');
 eq(h.lastLine(broken.output).length > 0, true, 'and the TV\'s own error text comes back with it');
 rmSync(hook, {force: true});

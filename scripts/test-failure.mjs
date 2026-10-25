@@ -34,8 +34,8 @@ eq(rowsOf().filter((o) => o.disabled).length, 0, 'nothing is greyed out when not
 eq(rowsOf({homeApp: null, homeHook: null, root: 'yes'}).filter((o) => o.disabled).length, 0, 'nothing is greyed out on a rooted TV');
 f.noteExec(new Error('Service does not exist: org.webosbrew.hbchannel.service'));
 const grey = rowsOf({homeApp: null, homeHook: null, root: 'no', rootDetail: 'Service does not exist'});
-eq(grey.filter((o) => o.disabled).map((o) => o.id).sort(), p.ROOT_OPTIONS.slice().sort(), 'every row that needs root is greyed out without it');
-eq(grey.filter((o) => !o.disabled).map((o) => o.id), [], 'every Options row needs root, so all are greyed out');
+eq(grey.filter((o) => o.disabled).map((o) => o.id).sort(), p.ROOT_OPTIONS.sort(), 'every row that needs root is greyed out without it');
+eq(grey.filter((o) => !o.disabled).map((o) => o.id), ['tvApps', 'showDebug'], 'every Options row that runs commands needs root, so only the no-root app list and the Debug tab switch stay usable');
 eq(p.optionsFor('look', f.DEFAULT_CONFIG, {root: 'no'}).some((o) => o.id === 'resetLook' && !o.disabled), true, 'Reset look and clock (on the Look tab) stays usable without root');
 eq(grey[0].disabled.indexOf('Needs a rooted TV') === 0 && grey[0].disabled.indexOf('TV said: Service does not exist') > 0, true, 'the reason says what the TV said');
 eq(p.disabledReason('theme', {root: 'no'}), null, 'a look setting is never greyed out');
@@ -54,4 +54,10 @@ const logoRow = (info) => p.optionsFor('options', f.DEFAULT_CONFIG, info).find((
 eq([logoRow({logo: 'off'}).valueText, logoRow({logo: 'on'}).valueText, logoRow({logo: null}).valueText], ['Off', 'On', 'Unknown'], 'the row shows the real state');
 eq(logoRow({logo: 'unsupported', root: 'yes'}).disabled.indexOf("doesn't have") > 0, true, 'greyed out with a reason when this TV has no such setting');
 eq(logoRow({logo: 'off', root: 'yes'}).disabled, undefined, 'usable on a rooted TV that has it');
+// P21: the no-root app list row is hidden once root is confirmed, unless it is already on (so it can be turned off)
+f.noteExec();       // a command worked: root is confirmed
+eq(p.optionsFor('options', f.DEFAULT_CONFIG).some((o) => o.id === 'tvApps'), false, 'P21: the no-root app list row is hidden when root is confirmed');
+eq(p.optionsFor('options', {...f.DEFAULT_CONFIG, tvApps: true}).some((o) => o.id === 'tvApps'), true, 'P21: but stays while it is on');
+f.resetRootState();
+eq(p.optionsFor('options', f.DEFAULT_CONFIG).some((o) => o.id === 'tvApps'), true, 'P21: shown while root is unknown');
 process.exit(fail ? 1 : 0);

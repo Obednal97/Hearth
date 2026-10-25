@@ -1,3 +1,4 @@
+import {WALLPAPER} from '../config/constants';
 import {useCallback, useEffect, useRef, useState} from 'preact/hooks';
 import {PickerIcon} from '../components/Glyph';
 import {failureText, whySuffix} from '../lib/failure';
@@ -11,14 +12,17 @@ import {
 export type WallpaperChoice =
 	| {mode: 'gradient'}
 	| {mode: 'image'; path: string}
-	| {mode: 'folder'; path: string};
+	| {mode: 'folder'; path: string}
+	| {mode: 'nature'};
 
 interface Props {
+	/** choosing one picture for a source's icon: no default-background or slideshow rows */
+	forIcon?: boolean;
 	onChoose: (choice: WallpaperChoice) => void;
 	onClose: () => void;
 }
 
-type RowKind = 'gradient' | 'root' | 'folder' | 'picture' | 'slideshow' | 'info' | 'retry';
+type RowKind = 'gradient' | 'nature' | 'root' | 'folder' | 'picture' | 'slideshow' | 'info' | 'retry';
 
 interface PickerRow {
 	key: string;
@@ -35,6 +39,19 @@ const HINTS = {
 	folder: 'OK opens a folder or sets a picture · Back goes up'
 } as const;
 
+/** Advice shown at the top level of the wallpaper picker (not in the icon picker): a warning, then how to copy files. */
+const MB = 1048576;
+const WALLPAPER_WARNING: readonly string[] = [
+	'Big pictures slow down the launcher when it loads them: the smaller the file, the faster it starts.',
+	`Hard limit: ${Math.round(WALLPAPER.maxBytes / MB)} MB and ${WALLPAPER.maxPixels / 1000000} megapixels per picture (a 4K picture is about 8 megapixels). Pictures over the limit are skipped in a slideshow, and refused as a single wallpaper.`
+];
+const WALLPAPER_HOWTO: readonly string[] = [
+	'To use your own pictures, put them in /media/developer (shown below as Internal storage), or plug in a USB drive.',
+	'Over SSH, from a computer:  scp photo.jpg root@<TV address>:/media/developer/   (if scp fails, try scp -O)',
+	'With webOS Dev Manager: connect to the TV and use its file or terminal option to copy into /media/developer.',
+	'<TV address> is the "IP:" number at the bottom right of Settings, or in the TV\'s network settings.'
+];
+
 /** Long paths keep their end (the current folder) and lose the start. */
 function shortPath (path: string): string {
 	return path.length > 90 ? `…${path.slice(path.length - 89)}` : path;
@@ -47,11 +64,11 @@ function pictureCount (entries: DirEntry[]): number {
 function buildRows (path: string | null, roots: StorageRoot[], entries: DirEntry[], failed: boolean): PickerRow[] {
 	if (failed) {
 		const rows: PickerRow[] = [{key: 'retry', kind: 'retry', label: 'Try again', detail: 'Read the storage again'}];
-		if (path === null) rows.unshift({key: 'gradient', kind: 'gradient', label: 'Default background', detail: 'Plain black, or the calm gradient, as set by the theme'});
+		if (path === null) rows.unshift({key: 'gradient', kind: 'gradient', label: 'Built-in background', detail: 'No picture. Change which one with ← → on the Wallpaper row'}, {key: 'nature', kind: 'nature', label: 'Nature photos slideshow', detail: 'The 11 photos that come with Hearth, one after another. No root or USB needed'});
 		return rows;
 	}
 	if (path === null) {
-		const rows: PickerRow[] = [{key: 'gradient', kind: 'gradient', label: 'Default background', detail: 'Plain black, or the calm gradient, as set by the theme'}];
+		const rows: PickerRow[] = [{key: 'gradient', kind: 'gradient', label: 'Built-in background', detail: 'No picture. Change which one with ← → on the Wallpaper row'}, {key: 'nature', kind: 'nature', label: 'Nature photos slideshow', detail: 'The 11 photos that come with Hearth, one after another. No root or USB needed'}];
 		roots.forEach((r) => rows.push({key: `root:${r.path}`, kind: 'root', label: r.label, detail: r.path, path: r.path}));
 		if (!roots.some((r) => r.path !== INTERNAL_ROOT.path)) {
 			rows.push({key: 'no-usb', kind: 'info', label: 'No USB drive found', detail: 'Plug one in, then open this screen again'});
@@ -79,7 +96,7 @@ function buildRows (path: string | null, roots: StorageRoot[], entries: DirEntry
 /** Folder browser for choosing a wallpaper picture or a slideshow folder.
  *  Top level: the default gradient, USB drives, internal storage. Inside a folder: sub-folders,
  *  pictures, and (when it has pictures) a row that plays the whole folder as a slideshow. */
-export function Picker ({onChoose, onClose}: Props) {
+export function Picker ({forIcon, onChoose, onClose}: Props) {
 	const [roots, setRoots] = useState<StorageRoot[]>([]);
 	const [path, setPath] = useState<string | null>(null);
 	const [entries, setEntries] = useState<DirEntry[]>([]);
@@ -89,7 +106,7 @@ export function Picker ({onChoose, onClose}: Props) {
 	const [attempt, setAttempt] = useState(0);
 	const remembered = useRef<Record<string, number>>({});
 
-	const rows = buildRows(path, roots, entries, !loading && error !== '');
+	const rows = buildRows(path, roots, entries, !loading && error !== '').filter((r) => !forIcon || (r.kind !== 'gradient' && r.kind !== 'nature' && r.kind !== 'slideshow'));
 	const pathKey = path === null ? '' : path;
 
 	// Roots load once; a folder's contents load whenever the path changes.
@@ -136,6 +153,7 @@ export function Picker ({onChoose, onClose}: Props) {
 		if (!row || loading) return;
 		switch (row.kind) {
 			case 'gradient': onChoose({mode: 'gradient'}); break;
+			case 'nature': onChoose({mode: 'nature'}); break;
 			case 'retry': setIndex(0); setAttempt((n) => n + 1); break;
 			case 'root':
 			case 'folder': if (row.path) goTo(row.path, 0); break;
@@ -160,13 +178,20 @@ export function Picker ({onChoose, onClose}: Props) {
 
 	const start = clamp(index - Math.floor(VISIBLE_ROWS / 2), 0, Math.max(0, rows.length - VISIBLE_ROWS));
 	const visible = rows.slice(start, start + VISIBLE_ROWS);
-	const iconFor = (row: PickerRow) => row.kind === 'gradient' ? 'default' : row.kind === 'retry' ? 'info' : row.kind === 'root' ? (row.path === INTERNAL_ROOT.path ? 'folder' : 'drive') : row.kind;
+	const iconFor = (row: PickerRow) => row.kind === 'gradient' ? 'default' : row.kind === 'nature' ? 'slideshow' : row.kind === 'retry' ? 'info' : row.kind === 'root' ? (row.path === INTERNAL_ROOT.path ? 'folder' : 'drive') : row.kind;
 
 	return (
 		<div class="screen screen--picker">
 			<div class="settings">
-				<h1 class="settings__title">Choose wallpaper</h1>
+				<h1 class="settings__title">{forIcon ? 'Choose a picture for the icon' : 'Choose wallpaper'}</h1>
 				<p class="settings__hint">{path === null ? HINTS.roots : HINTS.folder}</p>
+				{path === null && !forIcon && (
+					<div class="picker__note">
+						<div class="picker__note-title">Before you choose</div>
+						<div class="picker__note-para">{WALLPAPER_WARNING.map((line) => <div key={line} class="picker__note-line">{line}</div>)}</div>
+						<div class="picker__note-para">{WALLPAPER_HOWTO.map((line) => <div key={line} class="picker__note-line">{line}</div>)}</div>
+					</div>
+				)}
 				<div class="picker__path">{path === null ? 'Locations' : shortPath(path)}</div>
 				<div class="picker">
 					{loading && <div class="picker__status">Loading…</div>}

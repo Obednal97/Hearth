@@ -1,10 +1,40 @@
 # Changelog
 
+## 1.2.0
+
+- **Hearth for WebOS** is the public name; the README now explains the two ways to replace LG Home (helper script, SAM), their known problems, and a recommended setup with Input Hook. The Home key code is 773 on the test remote; others may differ.
+- **Back on the home row** always opens the Recent apps panel; the old "jump to the first app" is gone.
+- **Quiet mode** (apps fade after a chosen idle time, 10-60 s; off by default), **OLED shift** (slow pixel shift, on by default, with an off switch), **icon spacing**, **wallpaper opacity**, **name colour**, and **bundled nature photos** with a slideshow. Quiet mode and OLED shift follow ideas from iulyax27 (pull request #10).
+- **Icon batches** and the Input Hook guide: thanks to iulyax27 (pull request #8).
+- **Speed:** the clock redraws Home once a minute (it was once a second) and unchanged tiles are not redrawn (worst key delay on the reference TV 200 ms to 66 ms).
+- **Credits:** Alejandro Morales (#1), chriskoperdraad-tech (#2, #3), ganondorft (#6), iulyax27 (#8, #10), community contribution (author not named); projects and ideas are listed in the README. Developed with Claude (Anthropic).
+- **Recent apps panel:** Back on the home screen opens a panel along the bottom with the TV's recent apps (rooted TVs). OK opens one, holding OK closes it, ↑ reaches *Close all*, Back closes the panel. Width and height are in Settings → Look. The idea comes from a community contribution (1.6.0 build, author not named); the code is Hearth's own.
+- **Icon shape** (Settings → Look): rounded or sharp square, squircle, circle, leaf, arch, teardrop. **Bottom fade** (Settings → Wallpaper): darkness and height. Both from the same contribution.
+- **Ten more clock fonts** (Outfit, Work Sans, Bricolage Grotesque, Big Shoulders, Jura, Tektur, JetBrains Mono, Lora, Poiret One, Pixelify Sans) and **six clock thickness steps** (Thin to Bold), from the same contribution. **Widget shadow** switch: a slight drop shadow behind the time, date and weather (Settings → Wallpaper).
+- **Experimental: webOS 3.x (Chromium 38)** from the same install file: a loader picks `app.js` or the ES5 `app.legacy.js`; custom properties are emulated there; the helper script watches the system log for the Home bar (`HOOK_VERSION` 9). Ideas and the watcher lines from pull requests #2 and #3 by chriskoperdraad-tech. Untested on a TV.
+- **Widget shadow strength** (Settings, Wallpaper) beside the shadow switch.
+- **Experimental: app list without root** (Settings, Options, "Load apps from the TV"): pairs with the TV's own remote-control service and reads the full app list; the order is Homebrew, then the TV, then the built-in list. Ideas from the public protocol; see README "Not rooted".
+- **Quiet mode** brings the apps back when you return from an app (it used to stay hidden until a key was pressed). **Load apps from the TV** is hidden on rooted TVs. Settings shows the TV's **IP** address at the bottom right; the wallpaper guide and README now point there instead of the Homebrew Channel.
+- **Tests tab:** frame timer and key delay (idle, Settings, Home) and start-up times (tests 28-31), to measure speed on a real TV. "Run all tests" skips the tests that need you to act or run long (21, 26, 29-31), and every test is given up after two minutes.
+- **Nature photo slideshow** now cross-fades and no longer redraws the whole launcher on each change.
+- **webOS 11:** the root options no longer stay greyed out on a rooted webOS 11 TV once a one-time permission step is done: `tools/webos11-permission.sh` (inside the app; run it once over SSH, see "webOS 11" in the README). The "TV refused the command" message now says so. Thanks to ganondorft (pull request #6) for finding the cause and the fix.
+- **Building on Windows:** the helper and start-up scripts are always written to the TV with plain line ends, and `.gitattributes` keeps `*.sh` files LF (also from pull request #6).
+
+- **Replace LG Home with a script and SAM** (Settings → Options). Instead of reacting after LG Home has appeared, a small black stand-in is mounted over
+  LG Home's own folder and the TV's app manager (SAM) is restarted once to read it, so the TV opens Hearth through LG Home's own place and **LG Home is never
+  drawn** (Home, Back out of an app, waking the TV). A root watcher opens Hearth the moment the TV reports the stand-in in front. The mount lives in memory
+  only; a link in the startup folder redoes it about 25 s into each start, and until then the watcher works as the helper script does. A start-up that does not
+  finish is not repeated, and the method switches itself off if Hearth cannot be opened. It cannot be on together with the helper script: each greys the
+  other out. Adapted from Glasshouse (see THIRD_PARTY_NOTICES.md); undo steps over SSH: `src/takeover/README.md`.
+
+- *Make this launcher the default instead of LG Home* is now **Replace LG Home with a helper script**. The helper now always starts at boot, so the
+  *Start the launcher helper at boot* row is gone (installing the new version adds the boot link to an existing helper). Its description warns that LG Home can
+  flash for a moment and points to the Input Hook app.
+
 ## 1.1.0
 
 The launcher is now called **Hearth**, with a new icon, and it is faster, easier to set up and much more complete.
 
-**New**
 - **Weather** under the clock: temperature, conditions and today's high and low, from [Open-Meteo](https://open-meteo.com) (no account, no key). Choose a city from a list of about 75 or search for any place
   in the world. Celsius or Fahrenheit. It is read from a saved copy at start-up and refreshed in the background, so it never slows the home screen down.
 - **Widget colour and opacity** (Settings → Wallpaper) for the clock, date and weather: white, warm white, ice blue, amber, grey, dark grey, black and three gradients (Ember, Ocean, Dusk), at 10 to 100 %.
@@ -66,3 +96,8 @@ First release of this fork of [partridgeworks/webos-launcher](https://github.com
 - **Alternative method:** the TV's own home-app setting, which may only work on webOS 5 and newer (it did not on webOS 4).
 
 **Targeted at older webOS:** built for, and tested on, an LG TV on webOS 4.x with the Homebrew Channel. Newer versions are untested.
+- **Slideshow shuffle keeps its place** across restarts instead of starting a new order each time. Thanks to [@alejandro](https://github.com/alejandro) (pull request #1); the next picture now waits one interval after start-up instead of loading at once.
+- **New defaults** for a fresh install and for *Reset look and clock*: clock follows the TV's 12/24-hour setting, weather on for Delhi with the city name and without high and low, icons at 90%, side margin 20 px, bottom margin 10 px. Reset now also restores the weather and the icon opacity. Existing settings are kept.
+- **Smoother start and wallpaper changes:** the dark shade behind the clock and row is no longer drawn on light themes, nor on a plain pure-black background; a slideshow now fades the new picture in over the old one instead of fading both at once.
+- README: how to copy your own wallpapers to the TV.
+- Light themes: the pale glow behind the clock and the app row is gone, so dark wallpapers look right.

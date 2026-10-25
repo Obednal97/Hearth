@@ -31,9 +31,18 @@ export function Glyph ({name}: {name: GlyphName}) {
 					<circle cx="10.7" cy="12.6" r="1.1" />
 				</>
 				: <>
-					<circle cx="12" cy="12" r="3.2" />
-					<path d="M12 2.8v2.4M12 18.8v2.4M2.8 12h2.4M18.8 12h2.4M5.5 5.5l1.7 1.7M16.8 16.8l1.7 1.7M5.5 18.5l1.7-1.7M16.8 7.2l1.7-1.7" />
+					<circle cx="12" cy="12" r="3" />
+					<path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.9.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.9 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.9l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.9.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.9-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.9V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z" />
 				</>}
+		</svg>
+	);
+}
+
+/** A source's icon (see lib/sourceicons.ts), drawn in the theme's text colour. */
+export function SourceGlyph ({path, cls = 'tile__glyph'}: {path: string; cls?: string}) {
+	return (
+		<svg class={cls} viewBox="0 0 24 24" aria-hidden="true">
+			<path d={path} />
 		</svg>
 	);
 }

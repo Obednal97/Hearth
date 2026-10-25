@@ -1,5 +1,7 @@
 import {useEffect, useRef} from 'preact/hooks';
+import {varScope} from '../lib/cssvars';
 import {WALLPAPER} from '../config/constants';
+import {NATURE_IDS, natureUrl, nextNature} from '../lib/backgrounds';
 import type {WallpaperConfig} from '../lib/storage';
 import {
 	clearWallpaperCache, listImages, loadPicture, readWallpaperCache, releasePicture, createShuffleOrder,
@@ -8,6 +10,8 @@ import {
 
 interface Props {
 	config: WallpaperConfig;
+	/** how solid the picture is, % (100 = fully) */
+	opacity?: number;
 	/** called (at most once per wallpaper choice) when pictures can't be shown; says why */
 	onProblem: (text: string) => void;
 }
@@ -23,14 +27,16 @@ interface Props {
  *
  *  The slideshow pauses while the launcher is in the background. The picture from the copy appears at once
  *  (no fade); only a change from one slideshow picture to the next cross-fades. */
-export function Wallpaper ({config, onProblem}: Props) {
+export function Wallpaper ({config, opacity = 100, onProblem}: Props) {
 	const layerA = useRef<HTMLDivElement>(null);
 	const layerB = useRef<HTMLDivElement>(null);
+	const wrap = useRef<HTMLDivElement>(null);
 	const report = useRef(onProblem);
 	report.current = onProblem;
 
 	useEffect(() => {
 		const layers = [layerA.current as HTMLDivElement, layerB.current as HTMLDivElement];
+		const root = wrap.current as HTMLDivElement;
 		const held: (string | null)[] = [null, null];     // the picture URL each layer holds
 		const cacheId = wallpaperCacheId(config.mode, config.path);
 		let front = -1;              // layer currently showing, -1 when none
@@ -72,15 +78,30 @@ export function Wallpaper ({config, onProblem}: Props) {
 			hide(0);
 			hide(1);
 			front = -1;
+			root.classList.add('wallpaper--bare');       // no picture: the shade may be skipped (see the stylesheet)
+		};
+
+		/** Takes a layer off at once (no fade) once the new picture covers it. */
+		const drop = (i: number) => {
+			const layer = layers[i];
+			layer.style.transition = 'none';
+			layer.classList.remove('wallpaper__layer--on');
+			void layer.offsetWidth;
+			layer.style.transition = '';
+			release(i);
 		};
 
 		/** `instant`: no fade (the picture is already known, e.g. when the launcher comes back to the front) */
 		const show = (url: string, instant?: boolean) => {
 			const back = front === 0 ? 1 : 0;
+			const old = front;
 			if (held[back]) release(back);
 			held[back] = url;
 			const layer = layers[back];
 			layer.style.backgroundImage = `url("${url}")`;
+			layer.style.zIndex = '2';                     // the new picture goes over the old one
+			if (old >= 0) layers[old].style.zIndex = '1';
+			root.classList.remove('wallpaper--bare');
 			if (instant) {
 				layer.style.transition = 'none';
 				layer.classList.add('wallpaper__layer--on');
@@ -89,7 +110,12 @@ export function Wallpaper ({config, onProblem}: Props) {
 			} else {
 				window.requestAnimationFrame(() => layer.classList.add('wallpaper__layer--on'));
 			}
-			if (front >= 0) hide(front);
+			// Cross-fade: only the new picture changes (fades in over the old one), then the old one is taken off. Fading
+			// both at once blended two full-screen layers and let the background show through half-way.
+			if (old >= 0) {
+				if (instant) hide(old);
+				else window.setTimeout(() => { if (!disposed && front !== old) drop(old); }, WALLPAPER.fadeMs + 150);
+			}
 			front = back;
 			shownAt = Date.now();
 		};
@@ -167,10 +193,8 @@ export function Wallpaper ({config, onProblem}: Props) {
 				snapshot = cached;
 				unsaved = false;
 				cacheKnown = true;
-				if (config.mode === 'folder') {
-					if (config.shuffle) advance();
-					else schedule();
-				}
+				// the saved shuffle order picks the next picture after one interval: nothing is loaded at start-up
+				if (config.mode === 'folder') schedule();
 				return;
 			}
 			if (config.mode === 'image') { files = [config.path]; next(0); return; }
@@ -207,14 +231,104 @@ export function Wallpaper ({config, onProblem}: Props) {
 			layers.forEach((layer) => layer.classList.remove('wallpaper__layer--on'));
 			release(0);
 			release(1);
+			root.classList.add('wallpaper--bare');
 		};
 	}, [config.mode, config.path, config.intervalSec, config.shuffle]);
 
+	const vars = varScope('wallpaper', {'--wallpaper-opacity': opacity < 100 ? String(opacity / 100) : undefined});
+
 	return (
-		<div class="wallpaper" aria-hidden="true">
+		<div class={`wallpaper wallpaper--bare${vars.cls ? ' ' + vars.cls : ''}`} aria-hidden="true" ref={wrap} style={vars.css || undefined}>
 			<div class="wallpaper__layer" ref={layerA} />
 			<div class="wallpaper__layer" ref={layerB} />
 			<div class="wallpaper__scrim" />
+			<div class="wallpaper__fade" />
+		</div>
+	);
+}
+
+/** The bundled-photo slideshow. Own component and own state, so a change of picture re-renders nothing else.
+ *  The first photo appears at once; each next one is loaded and drawn invisibly for a moment (so the picture is
+ *  already decoded), then fades in over the old one. Pauses while `paused` (launcher in the background). */
+export function PhotoShow ({intervalSec, shuffle, paused}: {intervalSec: number; shuffle: boolean; paused: boolean}) {
+	const layerA = useRef<HTMLDivElement>(null);
+	const layerB = useRef<HTMLDivElement>(null);
+	const wrap = useRef<HTMLDivElement>(null);
+	const state = useRef({front: -1, index: Math.floor(Math.random() * NATURE_IDS.length), busy: false});
+
+	useEffect(() => { clearWallpaperCache(); }, []);
+
+	useEffect(() => {
+		const layers = [layerA.current as HTMLDivElement, layerB.current as HTMLDivElement];
+		const root = wrap.current as HTMLDivElement;
+		const st = state.current;
+		let disposed = false;
+		let timer = 0;
+		let warm = 0;
+		let img: HTMLImageElement | null = null;
+
+		const show = (url: string) => {
+			const back = st.front === 0 ? 1 : 0;
+			const old = st.front;
+			const layer = layers[back];
+			layer.style.transition = 'none';
+			layer.classList.remove('wallpaper__layer--on');
+			layer.style.opacity = old < 0 ? '' : '0.01';          // barely visible: the picture is decoded before it fades in
+			layer.style.backgroundImage = `url("${url}")`;
+			layer.style.zIndex = '2';
+			if (old >= 0) layers[old].style.zIndex = '1';
+			root.classList.remove('wallpaper--bare');
+			st.front = back;
+			const fadeIn = () => {
+				layer.style.transition = '';
+				void layer.offsetWidth;
+				layer.style.opacity = '';
+				layer.classList.add('wallpaper__layer--on');
+				if (old >= 0) {
+					warm = window.setTimeout(() => {
+						if (disposed) return;
+						const l = layers[old];
+						l.style.transition = 'none';
+						l.classList.remove('wallpaper__layer--on');
+						l.style.backgroundImage = '';
+					}, WALLPAPER.fadeMs + 150);
+				}
+			};
+			if (old < 0) { void layer.offsetWidth; fadeIn(); }
+			else warm = window.setTimeout(() => { if (!disposed) fadeIn(); }, 200);
+		};
+
+		const load = (then: () => void) => {
+			st.busy = true;
+			const url = natureUrl(st.index);
+			img = new Image();
+			img.onload = () => { st.busy = false; if (!disposed) { show(url); then(); } };
+			img.onerror = () => { st.busy = false; if (!disposed) then(); };
+			img.src = url;
+		};
+
+		const tick = () => {
+			if (disposed) return;
+			st.index = nextNature(st.index, shuffle);
+			load(schedule);
+		};
+		const schedule = () => { window.clearTimeout(timer); if (!paused) timer = window.setTimeout(tick, intervalSec * 1000); };
+
+		if (st.front < 0) load(schedule); else schedule();
+		return () => {
+			disposed = true;
+			window.clearTimeout(timer);
+			window.clearTimeout(warm);
+			if (img) { img.onload = null; img.onerror = null; }
+		};
+	}, [intervalSec, shuffle, paused]);
+
+	return (
+		<div class="wallpaper wallpaper--bare" aria-hidden="true" ref={wrap}>
+			<div class="wallpaper__layer" ref={layerA} />
+			<div class="wallpaper__layer" ref={layerB} />
+			<div class="wallpaper__scrim" />
+			<div class="wallpaper__fade" />
 		</div>
 	);
 }

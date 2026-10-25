@@ -10,14 +10,24 @@ import preact from '@preact/preset-vite';
 //     everything (dependencies included) is compiled down to the chrome53 target.
 const BROWSER_TARGET = 'chrome53';
 
-/** Rewrites Vite's module entry tag into a classic deferred script tag. */
+// HEARTH_LEGACY=1 builds the bundle for Chromium 38 (webOS 3.x) into dist-legacy/; scripts/legacy.mjs turns it into
+// dist/assets/app.legacy.js (ES5 plus polyfills). The page picks the bundle at start (see `classicScriptTag`).
+const LEGACY = !!((globalThis as unknown as {process?: {env: Record<string, string | undefined>}}).process || {env: {}}).env.HEARTH_LEGACY;
+
+/** Replaces Vite's module entry tag with a classic loader script that picks the bundle (see below). */
 function classicScriptTag (): Plugin {
 	return {
 		name: 'classic-script-tag',
 		enforce: 'post',
 		transformIndexHtml (html) {
+			// The script tag moves to the end of the body, as a small loader: browsers with custom properties (Chrome 49 and
+			// newer, everything from webOS 4 on) get app.js, older ones (webOS 3.x) the ES5 bundle app.legacy.js.
+			let entry = './assets/app.js';
+			html = html.replace(/<script type="module" crossorigin src="([^"]+)"><\/script>\s*/g, (_all, src: string) => { entry = src; return ''; });
+			const legacy = entry.replace(/app\.js$/, 'app.legacy.js');
+			const loader = `<script>document.write('<script src="' + (window.CSS && CSS.supports && CSS.supports('--a', '0') ? '${entry}' : '${legacy}') + '"><\\/script>');</script>`;
 			return html
-				.replace(/<script type="module" crossorigin src="([^"]+)"><\/script>/g, '<script defer src="$1"></script>')
+				.replace('</body>', loader + '</body>')
 				.replace(/<link rel="stylesheet" crossorigin href="/g, '<link rel="stylesheet" href="');
 		}
 	};
@@ -28,12 +38,13 @@ const env = (globalThis as unknown as {process?: {env: Record<string, string | u
 const WEATHER = !(env && env.env.HEARTH_WEATHER === '0');
 
 export default defineConfig({
-	define: {__WEATHER__: JSON.stringify(WEATHER)},
+	define: {__LEGACY__: JSON.stringify(LEGACY), __WEATHER__: JSON.stringify(WEATHER), __PROBE__: JSON.stringify(!!(env && env.env.HEARTH_PROBE === '1'))},
 	base: './',            // the app is loaded from a local file path on the TV
 	plugins: [preact(), classicScriptTag()],
 	build: {
-		target: BROWSER_TARGET,
-		outDir: 'dist',
+		target: LEGACY ? 'es2015' : BROWSER_TARGET,
+		outDir: LEGACY ? 'dist-legacy' : 'dist',
+		copyPublicDir: !LEGACY,
 		modulePreload: false,
 		cssTarget: BROWSER_TARGET,
 		rollupOptions: {

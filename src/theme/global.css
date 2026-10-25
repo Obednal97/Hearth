@@ -20,6 +20,19 @@
 @font-face { font-family: 'Roboto Mono'; font-style: normal; font-weight: 300; font-display: block; src: url('../assets/roboto-mono-latin-300.woff2') format('woff2'); }
 @font-face { font-family: 'Roboto Mono'; font-style: normal; font-weight: 400; font-display: block; src: url('../assets/roboto-mono-latin-400.woff2') format('woff2'); }
 @font-face { font-family: 'Cormorant Garamond'; font-style: normal; font-weight: 300; font-display: block; src: url('../assets/cormorant-garamond-latin-300.woff2') format('woff2'); }
+/* more clock fonts (WOFF, subset to Latin) */
+@font-face { font-family: 'Poppins'; font-style: normal; font-weight: 500; font-display: block; src: url('../assets/hearth-poppins-500.woff') format('woff'); }
+@font-face { font-family: 'Poppins'; font-style: normal; font-weight: 700; font-display: block; src: url('../assets/hearth-poppins-700.woff') format('woff'); }
+@font-face { font-family: 'Outfit'; font-style: normal; font-weight: 400 700; font-display: block; src: url('../assets/hearth-outfit.woff') format('woff'); }
+@font-face { font-family: 'Work Sans'; font-style: normal; font-weight: 400 700; font-display: block; src: url('../assets/hearth-worksans.woff') format('woff'); }
+@font-face { font-family: 'Bricolage Grotesque'; font-style: normal; font-weight: 400 700; font-display: block; src: url('../assets/hearth-bricolage.woff') format('woff'); }
+@font-face { font-family: 'Big Shoulders'; font-style: normal; font-weight: 400 700; font-display: block; src: url('../assets/hearth-bigshoulders.woff') format('woff'); }
+@font-face { font-family: 'Jura'; font-style: normal; font-weight: 300 500; font-display: block; src: url('../assets/hearth-jura.woff') format('woff'); }
+@font-face { font-family: 'Tektur'; font-style: normal; font-weight: 400 500; font-display: block; src: url('../assets/hearth-tektur.woff') format('woff'); }
+@font-face { font-family: 'JetBrains Mono'; font-style: normal; font-weight: 400 700; font-display: block; src: url('../assets/hearth-jetbrains.woff') format('woff'); }
+@font-face { font-family: 'Lora'; font-style: normal; font-weight: 400 700; font-display: block; src: url('../assets/hearth-lora.woff') format('woff'); }
+@font-face { font-family: 'Poiret One'; font-style: normal; font-weight: 400; font-display: block; src: url('../assets/hearth-poiret.woff') format('woff'); }
+@font-face { font-family: 'Pixelify Sans'; font-style: normal; font-weight: 500; font-display: block; src: url('../assets/hearth-pixelify.woff') format('woff'); }
 @font-face { font-family: 'Cormorant Garamond'; font-style: normal; font-weight: 400; font-display: block; src: url('../assets/cormorant-garamond-latin-400.woff2') format('woff2'); }
 
 * { box-sizing: border-box; }
@@ -63,9 +76,13 @@ html, body {
 	width: 100%; height: 100%;
 	z-index: 0;
 	overflow: hidden;
-	background: linear-gradient(155deg, var(--color-wallpaper-start) 0%, var(--color-wallpaper-mid) 55%, var(--color-wallpaper-end) 100%);
+	background-image: var(--wallpaper-image, none), linear-gradient(155deg, var(--color-wallpaper-start) 0%, var(--color-wallpaper-mid) 55%, var(--color-wallpaper-end) 100%);
+	background-size: cover, 100% 100%;
+	background-position: center, 0 0;
+	background-repeat: no-repeat, no-repeat;
 }
 .wallpaper__layer {
+	z-index: 1;
 	position: absolute;
 	left: 0; top: 0;
 	width: 100%; height: 100%;
@@ -75,13 +92,28 @@ html, body {
 	opacity: 0;
 	transition: opacity 1400ms ease-in-out;     /* keep in sync with WALLPAPER.fadeMs */
 }
-.wallpaper__layer--on { opacity: 1; }
+.wallpaper__layer--on { opacity: var(--wallpaper-opacity, 1); }
 /* A soft shade at the top and bottom keeps the clock and the app row readable on any picture. */
 .wallpaper__scrim {
+	z-index: 3;
+	display: var(--scrim-display, block);       /* none on the light themes: nothing to draw */
 	position: absolute;
 	left: 0; top: 0;
 	width: 100%; height: 100%;
-	background: linear-gradient(to bottom, rgba(0, 0, 0, 0.22) 0%, rgba(0, 0, 0, 0.08) 35%, rgba(0, 0, 0, 0) 55%, rgba(0, 0, 0, 0.5) 100%);
+	background: linear-gradient(to bottom, rgba(var(--color-scrim), var(--color-scrim-top)) 0%, rgba(var(--color-scrim), var(--color-scrim-mid)) 35%, rgba(var(--color-scrim), 0) 55%, rgba(var(--color-scrim), var(--color-scrim-bottom)) 100%);
+}
+/* No picture on screen and a pure black background: the shade would change nothing, so it is not drawn. */
+.wallpaper--bare .wallpaper__scrim { display: var(--scrim-bare-display, block); }
+
+/* Bottom fade (Settings > Wallpaper): darkens the picture towards the bottom edge; drawn only when its darkness is above 0. */
+.wallpaper__fade {
+	z-index: 3;
+	display: var(--fade-display, none);
+	position: absolute;
+	left: 0; bottom: 0;
+	width: 100%;
+	height: var(--fade-height, 60%);
+	background: linear-gradient(to top, rgba(0, 0, 0, var(--fade-a, 0)) 0%, rgba(0, 0, 0, var(--fade-b, 0)) 35%, rgba(0, 0, 0, var(--fade-c, 0)) 70%, rgba(0, 0, 0, 0) 100%);
 }
 
 /* ---------- clock ---------- */
@@ -92,11 +124,14 @@ html, body {
 	white-space: nowrap;
 	transform: translateX(-50%);
 	pointer-events: none;
+	--clock-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);   /* the slight drop shadow; the Widget shadow switch sets it to none */
 }
-.clock--dark .clock__time, .clock--dark .clock__period, .clock--dark .clock__date, .clock--dark .clock__weather { text-shadow: 0 1px 3px rgba(255, 255, 255, 0.35), 0 2px 20px rgba(255, 255, 255, 0.25); }
+.clock--noshadow { --clock-shadow: none; }
+.clock--dark .clock__time, .clock--dark .clock__period, .clock--dark .clock__date, .clock--dark .clock__weather { text-shadow: none; }
 /* A gradient fills the letters. Each line gets its own fill (a line with its own opacity cannot be filled from its parent),
    and the soft shadow becomes a drop shadow (a text shadow would show through the transparent letters). */
-.clock--gradient { filter: drop-shadow(0 2px 6px rgba(0, 0, 0, 0.3)); }
+.clock--gradient { filter: var(--clock-drop, drop-shadow(0 2px 8px rgba(0, 0, 0, 0.4))); }
+.clock--gradient.clock--noshadow { filter: none; }
 .clock--gradient .clock__time, .clock--gradient .clock__date {
 	display: table;
 	margin-left: auto; margin-right: auto;
@@ -110,19 +145,19 @@ html, body {
 .clock--gradient .clock__weather-icon { stroke: var(--clock-accent); }
 .clock__time {
 	line-height: 1;
-	text-shadow: 0 2px 6px rgba(0, 0, 0, 0.28), 0 4px 44px rgba(0, 0, 0, 0.5);
+	text-shadow: var(--clock-shadow);
 }
 .clock__period {
 	font-weight: 300;
 	letter-spacing: 0.1em;
 	opacity: 0.75;
-	text-shadow: 0 2px 6px rgba(0, 0, 0, 0.35), 0 2px 24px rgba(0, 0, 0, 0.5);
+	text-shadow: var(--clock-shadow);
 }
 .clock__date {
 	font-weight: 300;
 	letter-spacing: 0.02em;
 	opacity: 0.75;
-	text-shadow: 0 2px 6px rgba(0, 0, 0, 0.35), 0 2px 24px rgba(0, 0, 0, 0.5);
+	text-shadow: var(--clock-shadow);
 }
 
 .clock__weather {
@@ -133,7 +168,7 @@ html, body {
 	font-weight: 300;
 	letter-spacing: 0.02em;
 	opacity: 0.75;
-	text-shadow: 0 2px 6px rgba(0, 0, 0, 0.35), 0 2px 24px rgba(0, 0, 0, 0.5);
+	text-shadow: var(--clock-shadow);
 }
 .clock__weather-icon {
 	flex: 0 0 auto;
@@ -150,7 +185,13 @@ html, body {
 
 .rows {
 	position: absolute;       /* left, right and bottom are set from the settings */
+	transition: opacity 500ms ease-out, transform 4s linear;
 }
+/* Quiet mode: the apps are hidden until a key is pressed. */
+.rows--quiet { opacity: 0; }
+/* OLED shift: the clock and the apps move by a few pixels (set on .screen as --shift-x / --shift-y). */
+.screen--shift .rows { transform: translate3d(var(--shift-x), var(--shift-y), 0); }
+.screen--shift .clock { transform: translateX(-50%) translate3d(var(--shift-x), var(--shift-y), 0); }
 
 .row { margin-bottom: var(--layout-row-gap); }
 .row:last-child { margin-bottom: 0; }
@@ -241,6 +282,20 @@ html, body {
 }
 .tile--focused .tile__ring { opacity: 1; }
 
+/* Minimalist look: no border round the icons, no focus ring; the selected icon is just larger. Re-order mode
+   keeps a soft shadow so the picked-up icon is still clear. */
+.look-minimal .tile__box { box-shadow: none; }
+.look-minimal .tile__ring { display: none; }
+.look-minimal .tile--focused .tile__frame { transform: scale(1.16); }
+.look-minimal .tile--lifted .tile__ring { display: block; opacity: 1; box-shadow: 0 18px 40px var(--color-lift-shadow); }
+/* Icon shapes (Settings > Look > Icon shape); the default rounded square uses the theme's own radius. */
+.rows--shape-square .tile__box, .rows--shape-square .tile__ring { border-radius: 4%; }
+.rows--shape-squircle .tile__box, .rows--shape-squircle .tile__ring { border-radius: 34%; }
+.rows--shape-circle .tile__box, .rows--shape-circle .tile__ring { border-radius: 50%; }
+.rows--shape-leaf .tile__box, .rows--shape-leaf .tile__ring { border-radius: 50% 8% 50% 8%; }
+.rows--shape-arch .tile__box, .rows--shape-arch .tile__ring { border-radius: 50% 50% 12% 12%; }
+.rows--shape-drop .tile__box, .rows--shape-drop .tile__ring { border-radius: 50% 50% 50% 6%; }
+.rows--dim .tile__box { opacity: var(--icon-opacity); }   /* only when below 100%: full opacity adds no layer */
 .tile__image {
 	position: absolute;
 	left: 0; top: 0;
@@ -273,7 +328,7 @@ html, body {
 	justify-content: center;
 	font-size: 64px;
 	font-weight: 600;
-	color: var(--color-text-primary);
+	color: #fff;
 }
 
 .tile__label {
@@ -327,8 +382,28 @@ html, body {
 .settings__tabs {
 	display: flex;
 	flex-direction: row;
-	margin: 36px 0 30px;
+	margin: 36px 0 22px;
 }
+.settings__toolbar {
+	display: flex;
+	flex-direction: row;
+	align-items: center;
+	margin: 0 0 8px;
+	min-height: 64px;
+}
+.settings__toolbar .settings__button { margin-left: 0; margin-right: 22px; flex: none; }
+.settings__about { position: absolute; right: 0; bottom: -44px; margin: 0; max-width: 1500px; text-align: right; font-size: 20px; letter-spacing: 0.02em; color: var(--color-text-muted); opacity: 0.8; }
+.settings__log { padding: 8px 0; max-height: 700px; overflow: hidden; }
+.settings__log-title { font-size: var(--font-option-label); color: var(--color-text-primary); margin-bottom: 14px; }
+.settings__log-line { font-family: "Roboto Mono", monospace; font-size: 22px; line-height: 1.45; color: var(--color-text-secondary); white-space: pre; }
+.settings__log--dense { max-height: 700px; overflow: hidden; }
+.settings__log--dense .settings__log-title { margin-bottom: 10px; }
+.settings__log--dense .settings__log-line { font-size: 20px; line-height: 1.3; }
+.settings__log-cols { display: flex; flex-direction: row; }
+.settings__log-col--main { flex: none; }
+.settings__log-col--side { flex: none; margin-left: 40px; }
+.settings__log-sub { font-family: "Roboto Mono", monospace; font-size: 20px; line-height: 1.3; color: var(--color-text-primary); }
+.settings__note { margin: 0; font-size: var(--font-tile-label); line-height: 1.35; color: var(--color-text-muted); max-width: 900px; }
 .tab {
 	margin-right: 40px;
 	padding: 10px 4px;
@@ -344,7 +419,7 @@ html, body {
 .tab--focused { color: var(--color-text-primary); border-bottom-color: var(--color-tile-border-focus); }
 .tab--locked { opacity: 0.35; }
 
-/* top-right of the tabs row */
+/* the row of buttons under the tabs */
 .settings__button {
 	margin-left: auto;
 	align-self: center;
@@ -357,8 +432,6 @@ html, body {
 	transform: scale(1);
 	transition: transform var(--motion-focus-ms) ease-out, box-shadow var(--motion-focus-ms) ease-out, background var(--motion-focus-ms) ease-out, color var(--motion-focus-ms) ease-out;
 }
-.settings__button--refresh { margin-left: auto; margin-right: 20px; }
-.settings__button--refresh + .settings__button { margin-left: 0; }
 .settings__button--focused {
 	color: var(--color-text-primary);
 	box-shadow: 0 0 0 4px var(--color-tile-border-focus);
@@ -371,11 +444,11 @@ html, body {
 
 .grid__viewport {
 	overflow: hidden;
-	height: 720px;
+	height: 650px;
 	padding: 16px 0;
 }
-/* Flex-wrap instead of CSS grid: older webOS web views (Chrome 53) have no grid. Nine tiles
-   (plus their right-hand gaps) fill one line, so the tenth wraps, as the grid did. */
+/* Flex-wrap instead of CSS grid: older webOS web views (Chrome 53) have no grid. A line of tiles
+   (plus their right-hand gaps) fill one line, so the next one wraps, as the grid did. */
 .grid__track {
 	display: flex;
 	flex-direction: row;
@@ -387,6 +460,10 @@ html, body {
 }
 .grid__track .tile { margin-right: var(--layout-tile-gap); margin-bottom: 40px; }
 .tile--dimmed .tile__box { opacity: 0.45; }
+/* the Settings grid has smaller tiles: smaller letter and tick badge to match */
+.grid__track .tile__monogram { font-size: 50px; }
+.grid__track .tile__badge { right: 8px; top: 8px; width: 28px; height: 28px; }
+.grid__track .tile__badge svg { width: 16px; height: 16px; }
 
 /* re-order mode: the picked-up tile floats above the others */
 .tile--lifted .tile__frame,
@@ -403,6 +480,8 @@ html, body {
 /* two rows of apps: both stay fully visible, with a little space between */
 .rows--multi .row__viewport { opacity: 1; }
 .rows--multi .row + .row { margin-top: 14px; }
+/* Look → Name colour */
+.rows--label-color .tile .tile__label { color: var(--label-color); }
 /* Look → Show app names: off */
 .rows--no-labels .tile__label { display: none; }
 
@@ -434,7 +513,7 @@ html, body {
 .option__label { font-size: var(--font-option-label); color: var(--color-text-primary); }
 .option--disabled .option__label, .option--disabled .option__value, .option--disabled .switch { opacity: 0.4; }
 .option__description--reason { color: var(--color-text-secondary); font-style: italic; }
-.option__description { margin-top: 8px; font-size: var(--font-option-description); line-height: 1.4; color: var(--color-text-secondary); }
+.option__description { white-space: pre-line; margin-top: 8px; font-size: var(--font-option-description); line-height: 1.4; color: var(--color-text-secondary); }
 
 .switch {
 	flex: 0 0 auto;
@@ -478,7 +557,11 @@ html, body {
 	overflow: hidden;
 	text-overflow: ellipsis;
 }
-.picker { width: 1300px; }
+.picker { width: 1300px; margin-top: 24px; }
+.picker__note { width: 1300px; margin-top: 24px; padding: 18px 28px; border-radius: 20px; background: var(--color-tile-bg); box-sizing: border-box; }
+.picker__note-title { font-size: 22px; color: var(--color-text-primary); margin-bottom: 8px; }
+.picker__note-para + .picker__note-para { margin-top: 12px; }
+.picker__note-line { font-size: 19px; line-height: 1.45; color: var(--color-text-secondary); }
 .picker__status { padding: 40px 8px; font-size: var(--font-option-label); color: var(--color-text-secondary); }
 .picker__status--error { color: var(--color-danger); }
 .picker__row {
@@ -528,6 +611,25 @@ html, body {
 
 /* ---------- the menu that opens when OK is held on an app ---------- */
 
+/* Recent apps panel (Back on the home screen): a sheet along the bottom edge, in the dialog's colours. */
+.screen--recents { background: rgba(0, 0, 0, 0.45); }
+.recents {
+	position: absolute;
+	bottom: 0;
+	box-sizing: border-box;
+	padding: 24px 28px 0;
+	border-radius: 28px 28px 0 0;
+	background: var(--color-picker-bg);
+	box-shadow: 0 0 0 2px var(--color-tile-border), 0 -20px 60px rgba(0, 0, 0, 0.5);
+	overflow: hidden;
+}
+.recents__head { display: flex; flex-direction: row; align-items: center; justify-content: space-between; margin-bottom: 22px; }
+.recents__titles { min-width: 0; }
+.recents__title { margin: 0; font-size: var(--font-settings-title); font-weight: 300; color: var(--color-text-primary); white-space: nowrap; }
+.recents__hint { margin: 4px 0 0; font-size: 18px; color: var(--color-text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.recents__closeall { margin-left: 24px; white-space: nowrap; flex: none; }
+.recents__closeall--off { opacity: 0.35; }
+.recents__status { padding-top: 34px; text-align: center; font-size: 24px; font-weight: 300; color: var(--color-text-muted); }
 .screen--dialog { background: rgba(0, 0, 0, 0.72); }
 .dialog {
 	position: absolute;

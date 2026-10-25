@@ -20,6 +20,12 @@ export interface SettingsTab {
 	refresh?: boolean;
 	/** present on option tabs (a list of settings instead of a grid of tiles) */
 	options?: OptionItem[];
+	/** text pages instead of tiles or options (the Debug tab); ↑ ↓ change page */
+	pages?: {title: string; lines: string[]; dense?: boolean; right?: {title: string; lines: string[]}}[];
+	/** Hold OK on a tile opens its name and icon editor */
+	edit?: boolean;
+	/** a line of explanation under the buttons (grid tabs) */
+	note?: string;
 }
 
 interface Props {
@@ -30,12 +36,18 @@ interface Props {
 	onOption: (optionId: string) => void;
 	/** the "Refresh list" button on the Apps tab */
 	onRefresh?: () => void;
+	/** Hold OK on a tile (Apps, Sources): the key of that tile, to edit its name and icon */
+	onEdit?: (key: string) => void;
 	/** ← or → on a stepper option: -1 or +1 */
 	onAdjust: (optionId: string, direction: -1 | 1) => void;
 	onClose: () => void;
+	/** the tab now showing (the app writes the debug report file when Debug opens) */
+	onTab?: (id: string) => void;
+	/** small print at the bottom right (versions, root state) */
+	about?: string;
 }
 
-/** Focus is on the tabs row (a tab, or the re-order button) or in the tab's content. */
+/** Focus is on the tabs row (a tab, or a button) or in the tab's content. */
 type Zone = 'tabs' | 'refresh' | 'button' | 'content';
 
 /** A tile that has been picked up in re-order mode, and the order to restore on Back. */
@@ -45,7 +57,8 @@ interface Held {
 }
 
 const HINT = {
-	select: 'OK adds or removes an item · Hold OK to re-order · Back returns home',
+	select: 'OK adds or removes an item · Back returns home',
+	edit: 'OK adds or removes an item · Hold OK to edit its name and icon · Back returns home',
 	reorder: 'OK picks up an item · Hold OK or choose Done to finish',
 	holding: 'Arrows move it · OK puts it down · Back cancels',
 	options: 'OK changes a setting · ← → adjust numbers · Back returns home'
@@ -56,30 +69,39 @@ const HINT = {
  *
  *  Tabs: grid tabs (Apps, Sources) and option tabs (Look, Clock, Wallpaper, Options).
  *  Grid tabs, select mode: everything available; OK adds/removes an item.
- *  Grid tabs, re-order mode (hold OK, or the button): only what's on the home screen, in order;
+ *  Grid tabs: hold OK on a tile to edit its name and icon (Apps, Sources).
+ *  Grid tabs, re-order mode (the Re-order button): only what's on the home screen, in order;
  *  OK picks an item up, arrows move it, OK puts it down. Hold OK or press Done to leave. */
-export function Settings ({tabs, active, onToggle, onReorder, onOption, onRefresh, onAdjust, onClose}: Props) {
+export function Settings ({tabs, active, onToggle, onReorder, onOption, onRefresh, onEdit, onAdjust, onClose, onTab, about}: Props) {
 	const [tabIndex, setTabIndex] = useState(0);
 	const [zone, setZone] = useState<Zone>('tabs');
 	const [gridIndex, setGridIndex] = useState(0);
 	const [optionIndex, setOptionIndex] = useState(0);
 	const [reordering, setReordering] = useState(false);
 	const [held, setHeld] = useState<Held | null>(null);
+	const [pageIndex, setPageIndex] = useState(0);
 
 	const tabCount = tabs.length;
 	const current: SettingsTab | undefined = tabs[tabIndex];
 	const options: OptionItem[] = (current && current.options) || [];
 	const onOptions = !!(current && current.options);
-	const tab: SettingsTab | undefined = onOptions ? undefined : current;     // grid tab, if any
+	const pages = (current && current.pages) || [];
+	const onPages = pages.length > 0;
+	const tab: SettingsTab | undefined = onOptions || onPages ? undefined : current;     // grid tab, if any
 	const hasRefresh = !!(tab && tab.refresh && onRefresh);
+	const hasEdit = !!(tab && tab.edit && onEdit);
+	// the buttons under the tabs, left to right
+	const bar: Zone[] = ([hasRefresh && !reordering && 'refresh', 'button'] as (Zone | false)[]).filter((z): z is Zone => !!z);
 	const items = tab ? (reordering ? tab.shown : tab.items) : [];
-	const count = onOptions ? options.length : items.length;
+	const count = onPages ? pages.length : onOptions ? options.length : items.length;
 	const cols = LAYOUT.gridColumns;
 	const keysOf = (list: TileModel[]) => list.map((t) => t.key);
 
 	const selectTab = (i: number) => {
 		if (reordering) return;          // tab is locked while re-ordering
 		setTabIndex(i);
+		setPageIndex(0);
+		if (onTab && tabs[i]) onTab(tabs[i].id);
 		setGridIndex(0);
 		setOptionIndex(0);
 	};
@@ -122,11 +144,17 @@ export function Settings ({tabs, active, onToggle, onReorder, onOption, onRefres
 		if (zone === 'refresh') { if (onRefresh) onRefresh(); return; }
 		if (zone === 'button') { setMode(!reordering); return; }
 		if (zone === 'tabs') { if (count > 0) setZone('content'); return; }
+		if (onPages) return;
 		if (onOptions) { if (options[optionIndex]) onOption(options[optionIndex].id); return; }
 		activateGridItem(gridIndex);
 	};
 
-	const onLongPress = () => { if (tab) setMode(!reordering); };
+	// Hold OK: on a tile, edit that app or source; while re-ordering, finish re-ordering
+	const onLongPress = () => {
+		if (!tab) return;
+		if (reordering) { setMode(false); return; }
+		if (zone === 'content' && hasEdit && onEdit && items[gridIndex]) onEdit(items[gridIndex].key);
+	};
 
 	useOkPress({onPress, onLongPress}, active);
 
@@ -151,18 +179,22 @@ export function Settings ({tabs, active, onToggle, onReorder, onOption, onRefres
 		if (zone === 'tabs') {
 			if (key === 'left') selectTab(clamp(tabIndex - 1, 0, tabCount - 1));
 			else if (key === 'right') selectTab(clamp(tabIndex + 1, 0, tabCount - 1));
+			else if (key === 'down') { if (tab) setZone(bar[0]); else if (count > 0) setZone('content'); }
+			return true;
+		}
+		// The buttons sit in a row under the tabs: Down from the tabs reaches them, Down again reaches the tiles.
+		if (zone === 'refresh' || zone === 'button') {
+			const at = bar.indexOf(zone);
+			if (key === 'left' && at > 0) setZone(bar[at - 1]);
+			else if (key === 'right' && at < bar.length - 1) setZone(bar[at + 1]);
+			else if (key === 'up' && !reordering) setZone('tabs');
 			else if (key === 'down' && count > 0) setZone('content');
 			return true;
 		}
-		if (zone === 'refresh') {
-			if (key === 'left') setZone('tabs');
-			else if (key === 'right') setZone('button');
-			else if (key === 'down' && count > 0) setZone('content');
-			return true;
-		}
-		if (zone === 'button') {
-			if (key === 'left' && !reordering) setZone(hasRefresh ? 'refresh' : 'tabs');
-			else if (key === 'down' && count > 0) setZone('content');
+
+		if (onPages) {
+			if (key === 'up') { if (pageIndex === 0) setZone('tabs'); else setPageIndex(pageIndex - 1); }
+			else if (key === 'down') setPageIndex(clamp(pageIndex + 1, 0, count - 1));
 			return true;
 		}
 
@@ -180,17 +212,17 @@ export function Settings ({tabs, active, onToggle, onReorder, onOption, onRefres
 			case 'right': setGridIndex((i) => clamp(i + 1, 0, count - 1)); break;
 			case 'up':
 				if (gridIndex >= cols) setGridIndex((i) => i - cols);
-				// Spatial: the button sits top-right, so leave the grid towards whichever is above.
-				else setZone(reordering || gridIndex % cols >= cols / 2 ? 'button' : 'tabs');
+				// the buttons are the row above the tiles
+				else setZone(gridIndex % cols < cols / 2 ? bar[0] : bar[bar.length - 1]);
 				break;
 			case 'down': setGridIndex((i) => (i + cols < count ? i + cols : i)); break;
 		}
 		return true;
-	}, [zone, tabIndex, tabCount, gridIndex, optionIndex, count, tab, onOptions, options, reordering, held, items, hasRefresh, onReorder, onAdjust, onClose]);
+	}, [pageIndex, onPages, zone, tabIndex, tabCount, gridIndex, optionIndex, count, tab, onOptions, options, reordering, held, items, hasRefresh, hasEdit, onReorder, onAdjust, onClose]);
 
 	useKeys(handleKey, active);
 
-	const hint = onOptions ? HINT.options : held ? HINT.holding : reordering ? HINT.reorder : HINT.select;
+	const hint = onPages ? 'Photograph the page · ↑ ↓ change page · Back returns home' : onOptions ? HINT.options : held ? HINT.holding : reordering ? HINT.reorder : hasEdit ? HINT.edit : HINT.select;
 	const labels = tabs.map((t) => t.label);
 	const buttonClass = ['settings__button', reordering && 'settings__button--active', zone === 'button' && 'settings__button--focused'].filter(Boolean).join(' ');
 
@@ -209,16 +241,18 @@ export function Settings ({tabs, active, onToggle, onReorder, onOption, onRefres
 							{label}
 						</div>
 					))}
-					{hasRefresh && !reordering && (
-						<div
-							class={['settings__button', 'settings__button--refresh', zone === 'refresh' && 'settings__button--focused'].join(' ')}
-							onMouseEnter={() => setZone('refresh')}
-							onClick={() => { if (onRefresh) onRefresh(); }}
-						>
-							Refresh list
-						</div>
-					)}
-					{tab && (
+				</div>
+				{tab && (
+					<div class="settings__toolbar">
+						{hasRefresh && !reordering && (
+							<div
+								class={['settings__button', zone === 'refresh' && 'settings__button--focused'].filter(Boolean).join(' ')}
+								onMouseEnter={() => setZone('refresh')}
+								onClick={() => { if (onRefresh) onRefresh(); }}
+							>
+								Refresh list
+							</div>
+						)}
 						<div
 							class={buttonClass}
 							onMouseEnter={() => setZone('button')}
@@ -226,8 +260,9 @@ export function Settings ({tabs, active, onToggle, onReorder, onOption, onRefres
 						>
 							{reordering ? 'Done' : `Re-order ${tab.noun}`}
 						</div>
-					)}
-				</div>
+						{tab.note && !reordering && <p class="settings__note">{tab.note}</p>}
+					</div>
+				)}
 				{tab && (
 					<Grid
 						items={items}
@@ -240,6 +275,22 @@ export function Settings ({tabs, active, onToggle, onReorder, onOption, onRefres
 						onActivate={(i) => { setZone('content'); activateGridItem(i); }}
 					/>
 				)}
+				{onPages && pages[pageIndex] && (
+					<div class={pages[pageIndex].dense ? 'settings__log settings__log--dense' : 'settings__log'}>
+						<div class="settings__log-title">{pages[pageIndex].title}</div>
+						<div class="settings__log-cols">
+							<div class="settings__log-col settings__log-col--main">
+								{pages[pageIndex].lines.map((l, i) => <div key={i} class="settings__log-line">{l || '\u00a0'}</div>)}
+							</div>
+							{pages[pageIndex].right && (
+								<div class="settings__log-col settings__log-col--side">
+									<div class="settings__log-sub">{pages[pageIndex].right!.title}</div>
+									{pages[pageIndex].right!.lines.map((l, i) => <div key={i} class="settings__log-line">{l || '\u00a0'}</div>)}
+								</div>
+							)}
+						</div>
+					</div>
+				)}
 				{onOptions && (
 					<OptionList
 						options={options}
@@ -249,6 +300,7 @@ export function Settings ({tabs, active, onToggle, onReorder, onOption, onRefres
 						onActivate={(i) => { setZone('content'); onOption(options[i].id); }}
 					/>
 				)}
+				{about && <p class="settings__about">{about}</p>}
 				{reordering && count === 0 && <p class="settings__hint">Nothing on the home screen yet.</p>}
 			</div>
 		</div>

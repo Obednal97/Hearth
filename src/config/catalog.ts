@@ -36,8 +36,12 @@ const BASE_CATALOG: CatalogApp[] = [
 	{id: 'amazon', title: 'Prime Video', icon: 'amazon.png'},
 	{id: 'com.disney.disneyplus-prod', title: 'Disney+', color: '#0f2b6b'},
 	{id: 'com.apple.appletv', title: 'Apple TV', icon: 'com.apple.appletv.png'},
+	{id: 'com.apple.tv', title: 'Apple TV', icon: 'com.apple.appletv.png'},
 	{id: 'com.wbd.stream', title: 'Max', color: '#002be7'},
+	{id: 'hbo-go-2', title: 'HBO Max', color: '#5822b4'},
+	{id: 'crunchyroll', title: 'Crunchyroll', color: '#f47521'},
 	{id: 'cdp-30', title: 'Plex', icon: 'cdp-30.png'},
+	{id: 'plex', title: 'Plex', icon: 'cdp-30.png'},
 	{id: 'spotify-beehive', title: 'Spotify', color: '#1db954'},
 	{id: 'tv.twitch.tv.starshot.lg', title: 'Twitch', icon: 'tv.twitch.tv.starshot.lg.png'},
 	// North America

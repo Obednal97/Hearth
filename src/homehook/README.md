@@ -14,18 +14,17 @@ reports as being in front. When that becomes LG Home (Home button, leaving an ap
 - `stock.sh`: "I want LG's own Home now": the watcher stands down until LG Home has been left again. The launcher's "LG Home" tile runs it.
 - `diagnose.sh`: collects what is needed to see why something isn't working.
 
-## The two switches (Settings → Options)
+## The switch (Settings → Options)
 
-- **Open this launcher instead of LG Home**: installs the scripts and starts the watcher. Off: stops it and deletes everything.
-- **Start that helper at boot**: a link in `/var/lib/webosbrew/init.d` (`48-launcher-homehook`). You can switch this off on its own:
-  the helper then starts when the launcher opens instead of at boot.
+- **Replace LG Home with a helper script**: installs the scripts, adds a link in `/var/lib/webosbrew/init.d` (`48-launcher-homehook`) so the
+  helper starts at boot, and starts the watcher. The helper also starts whenever the launcher opens. Off: stops it and deletes everything.
+  LG Home can flash for a moment before the launcher opens; the Input Hook app, or **Replace LG Home with a script and SAM**, avoids that.
 
 ## Reversing it
 
 Any one of these works:
 
-1. In the launcher: **Settings → Options → Open this launcher instead of LG Home → OK** (stops it and deletes everything it added).
-   To remove only the start-at-boot script, switch **Start that helper at boot** off.
+1. In the launcher: **Settings → Options → Replace LG Home with a helper script → OK** (stops it and deletes everything it added, the boot link included).
 2. Over SSH:
    ```
    rm -f /var/lib/webosbrew/init.d/48-launcher-homehook          # the start-at-boot script
