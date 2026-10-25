@@ -12,6 +12,7 @@ import {APP_ID, LUNA} from '../config/constants';
 import {isWebOS, lunaCall, type LunaResponse} from './luna';
 import {appExists} from './launch';
 import {noteExec, rootState, type RootState} from './failure';
+import {listTvApps, iconAddress, iconLoads} from './ssap';
 import {APPS_CACHE_KEY, deserializeApps, serializeApps} from './appcache';
 
 export interface AppEntry {
@@ -26,7 +27,7 @@ export interface AppEntry {
 	color?: string;
 }
 
-export type AppSource = 'catalog' | 'homebrew';
+export type AppSource = 'catalog' | 'homebrew' | 'tv';
 
 export interface AppList {
 	apps: AppEntry[];
@@ -38,11 +39,12 @@ const ICON_DIR = 'icons/apps/';
 
 /** `liveOnly`: when the Homebrew list can't be read, fail instead of falling back to the (smaller) catalogue.
  *  Used when a saved full list is already on screen, which must not be replaced by the catalogue. */
-export function listApps (useHomebrew: boolean, liveOnly: boolean = false): Promise<AppList> {
+export function listApps (liveOnly: boolean = false, useTv: boolean = false): Promise<AppList> {
 	if (!isWebOS()) return Promise.resolve({apps: catalogEntries(APP_CATALOG), source: 'catalog'});
 	const catalog = () => listViaCatalog().then((apps): AppList => ({apps, source: 'catalog'}));
-	if (!useHomebrew) return catalog();
-	const live = listViaHomebrew().then((apps): AppList => ({apps, source: 'homebrew'}));
+	const brew = listViaHomebrew().then((apps): AppList => ({apps, source: 'homebrew'}));
+	// EXPERIMENTAL, no root: when the Homebrew list is not available, ask the TV itself (ssap.ts), if the person turned that on
+	const live = useTv ? brew.catch(() => listViaTv().then((apps): AppList => ({apps, source: 'tv'}))) : brew;
 	return liveOnly ? live : live.catch(catalog);
 }
 
@@ -60,6 +62,28 @@ function catalogEntries (apps: CatalogApp[]): AppEntry[] {
 function listViaCatalog (): Promise<AppEntry[]> {
 	return Promise.all(APP_CATALOG.map((a) => appExists(a.id)))
 		.then((present) => catalogEntries(APP_CATALOG.filter((_, i) => present[i])));
+}
+
+// ---------- provider 3 (experimental): the TV's remote-control service, no root ----------
+
+function listViaTv (): Promise<AppEntry[]> {
+	return listTvApps().then((points) => {
+		const shown = points.filter((p) => p.id && p.title && HIDDEN_IDS.indexOf(p.id) === -1);
+		if (!shown.length) throw new Error('no launch points');
+		const entries = shown.map((p): AppEntry => {
+			const known = APP_CATALOG.find((c) => c.id === p.id);
+			return {
+				id: p.id,
+				title: known ? known.title : p.title,
+				// a bundled icon is certain to show; otherwise the TV's own picture, kept only if the page can load it (below)
+				iconUrl: known && known.icon ? ICON_DIR + known.icon : p.icon ? iconAddress(p.icon) : undefined,
+				removable: p.removable,
+				color: known && known.color
+			};
+		});
+		return Promise.all(entries.map((e) => (e.iconUrl && e.iconUrl.indexOf(ICON_DIR) !== 0 ? iconLoads(e.iconUrl) : Promise.resolve(true))))
+			.then((good) => entries.map((e, i) => (good[i] ? e : {...e, iconUrl: undefined})));
+	});
 }
 
 // ---------- provider 2: Homebrew Channel (opt-in) ----------
@@ -116,12 +140,36 @@ function listViaHomebrew (): Promise<AppEntry[]> {
 		});
 }
 
-/** Read the icons as data URIs in one shell round-trip, cached in localStorage by path.
- *  Icons are requested by *index*, so app IDs never reach the shell. */
+/** Icons are read this many per shell command: one big command for every icon timed out on TVs with many apps,
+ *  which left letters instead of icons. */
+export const ICON_BATCH = 4;
+
+type IconJob = {id: string; path: string};
+
+/** One shell round-trip for up to ICON_BATCH icons ("<index> <base64>" per line). Icons are requested by *index*,
+ *  so app IDs never reach the shell. Resolves with the icons it got; never rejects. */
+function readIcons (jobs: IconJob[]): Promise<Record<number, string>> {
+	// busybox base64 has no -w, so strip newlines
+	const script = jobs
+		.map((m, i) => `printf '%d ' ${i}; base64 ${shellQuote(m.path)} 2>/dev/null | tr -d '\\n'; echo`)
+		.join('; ');
+	return exec(script, 8000).then((out) => {
+		const got: Record<number, string> = {};
+		for (const line of out.split('\n')) {
+			const match = /^(\d+) ([A-Za-z0-9+\/=]+)$/.exec(line);
+			if (match && jobs[Number(match[1])]) got[Number(match[1])] = `data:image/png;base64,${match[2]}`;
+		}
+		return got;
+	}).catch(() => ({}));
+}
+
+/** Read the icons as data URIs, cached in localStorage by path. Batches of ICON_BATCH, run one after another; an icon
+ *  missing from its batch is asked for once more on its own. The cache is saved after every batch, so a slow TV keeps
+ *  what it has already read. */
 function loadIcons (points: LaunchPoint[]): Promise<Record<string, string>> {
 	const cache = readIconCache();
 	const result: Record<string, string> = {};
-	const missing: {id: string; path: string}[] = [];
+	const missing: IconJob[] = [];
 	for (const p of points) {
 		const path = p.largeIcon || p.icon;
 		if (!path || !SAFE_PATH.test(path)) continue;
@@ -130,19 +178,7 @@ function loadIcons (points: LaunchPoint[]): Promise<Record<string, string>> {
 	}
 	if (!missing.length) return Promise.resolve(result);
 
-	// One line per icon: "<index> <base64>". busybox base64 has no -w, so strip newlines.
-	const script = missing
-		.map((m, i) => `printf '%d ' ${i}; base64 ${shellQuote(m.path)} 2>/dev/null | tr -d '\\n'; echo`)
-		.join('; ');
-	return exec(script, 15000).then((out) => {
-		for (const line of out.split('\n')) {
-			const match = /^(\d+) ([A-Za-z0-9+\/=]+)$/.exec(line);
-			const entry = match && missing[Number(match[1])];
-			if (!match || !entry) continue;
-			const url = `data:image/png;base64,${match[2]}`;
-			result[entry.id] = url;
-			cache[entry.path] = url;
-		}
+	const keep = (): void => {
 		// keep only the icons of apps that are still installed, so the cache does not grow past the storage limit
 		const kept: Record<string, string> = {};
 		for (const p of points) {
@@ -150,8 +186,17 @@ function loadIcons (points: LaunchPoint[]): Promise<Record<string, string>> {
 			if (path && cache[path]) kept[path] = cache[path];
 		}
 		writeIconCache(kept);
-		return result;
-	}).catch(() => result);
+	};
+	const store = (job: IconJob, url: string): void => { result[job.id] = url; cache[job.path] = url; };
+
+	const batches: IconJob[][] = [];
+	for (let i = 0; i < missing.length; i += ICON_BATCH) batches.push(missing.slice(i, i + ICON_BATCH));
+	return batches.reduce((chain, batch) => chain.then(() => readIcons(batch).then((got) => {
+		const lost: IconJob[] = [];
+		batch.forEach((job, i) => { if (got[i]) store(job, got[i]); else lost.push(job); });
+		// per-icon retry, one command each
+		return lost.reduce((c, job) => c.then(() => readIcons([job]).then((one) => { if (one[0]) store(job, one[0]); })), Promise.resolve());
+	}).then(keep)), Promise.resolve()).then(() => result, () => result);
 }
 
 /** The app list as last seen, for an instant first paint (empty the first time). */

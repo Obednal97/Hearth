@@ -33,3 +33,15 @@ export function hiddenAfterUpgrade<T extends {id: string}> (apps: T[], order: st
 export function toggleHidden (hidden: string[], id: string): string[] {
 	return hidden.indexOf(id) === -1 ? hidden.concat(id) : hidden.filter((x) => x !== id);
 }
+
+/** The saved order with every app that is not in it yet added at the end, in the list's order. This is what puts a newly
+ *  installed app after the last app of the row, instead of wherever the TV happens to list it. Returns the very same array
+ *  when nothing is new (so nothing needs saving). */
+export function extendOrder<T extends {id: string}> (apps: T[], order: string[] | null): string[] | null {
+	if (apps.length === 0) return order;
+	const known: Record<string, boolean> = {};
+	(order || []).forEach((id) => { known[id] = true; });
+	const added = apps.filter((a) => !known[a.id]).map((a) => a.id);
+	if (added.length === 0 && order !== null) return order;
+	return (order || []).concat(added);
+}

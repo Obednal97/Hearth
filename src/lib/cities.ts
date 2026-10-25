@@ -3,6 +3,9 @@
 
 import type {City} from './weather';
 
+/** The city a fresh install (and "Reset look and clock") starts with. */
+export const DEFAULT_CITY: City = {name: 'Delhi', lat: 28.6139, lon: 77.2090, detail: 'India'};
+
 export const PRESET_CITIES: City[] = [
 	{name: 'Thiruvananthapuram', lat: 8.5241, lon: 76.9366, detail: 'Kerala, India'},
 	{name: 'Kochi', lat: 9.9312, lon: 76.2673, detail: 'Kerala, India'},

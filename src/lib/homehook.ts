@@ -10,14 +10,17 @@ import {exec} from './apps';
 import {classifyFailure, failureReason} from './failure';
 import {isWebOS} from './luna';
 import {
-	ALIVE_FILE, APPLY_COMMAND, HOOK_VERSION, installSteps, LINK_OFF_COMMAND, LINK_ON_COMMAND, lastLine, parseExit, parseHookResult,
+	ALIVE_FILE, APPLY_COMMAND, HOOK_VERSION, installSteps, lastLine, parseExit, parseHookResult,
 	parseHookStatus, REMOVE_COMMAND, STATUS_COMMAND, STOCK_COMMAND, VERSION_COMMAND, withStatus,
 	type HookResult, type HookStatus
 } from './homehookcmd';
 
 export type {HookResult, HookStatus};
 
-const FILES = {watchSh, applySh, stockSh, diagnoseSh};
+// The TV's shell reads a carriage return as part of the word ("then\r"), so scripts from a Windows checkout would fail
+// with "syntax error". Always send them with plain line ends (idea from pull request #6, ganondorft).
+const lf = (text: string): string => text.replace(/\r\n?/g, '\n');
+const FILES = {watchSh: lf(watchSh), applySh: lf(applySh), stockSh: lf(stockSh), diagnoseSh: lf(diagnoseSh)};
 
 export function getHookStatus (): Promise<HookStatus | null> {
 	if (!isWebOS()) return Promise.resolve(null);
@@ -30,11 +33,11 @@ export interface HookOutcome {
 	detail: string;
 }
 
-/** Writes the scripts, sets the boot link as asked, and starts the watcher, one small step at a time.
+/** Writes the scripts, adds the boot link, and starts the watcher, one small step at a time.
  *  If it can't be done everything it added is removed again, and the outcome says why. */
-export function installHomeHook (boot: boolean): Promise<HookOutcome> {
+export function installHomeHook (): Promise<HookOutcome> {
 	if (!isWebOS()) return Promise.resolve({result: 'failed', detail: 'not running on a TV'});
-	const steps = installSteps(FILES, boot);
+	const steps = installSteps(FILES);
 	const run = (i: number): Promise<HookOutcome> => {
 		const step = steps[i];
 		return exec(withStatus(step.command), 15000).then(
@@ -59,12 +62,12 @@ export interface Reapplied extends HookOutcome {
 
 /** Makes sure the watcher is running (after a reboot, or when the launcher opens). If the copy on the TV
  *  is from an older version of the launcher, it is rewritten first, so updating the launcher updates it. */
-export function reapplyHomeHook (boot: boolean): Promise<Reapplied> {
+export function reapplyHomeHook (): Promise<Reapplied> {
 	if (!isWebOS()) return Promise.resolve({result: 'failed', detail: 'not running on a TV', fatal: false});
 	return exec(VERSION_COMMAND, 6000).then((out) => out.trim(), () => null).then((installed): Reapplied | Promise<Reapplied> => {
 		if (installed === null) return {result: 'failed', detail: 'the Homebrew service did not answer', fatal: false, unreachable: true};
 		if (installed !== HOOK_VERSION) {
-			return installHomeHook(boot).then((outcome): Reapplied => ({...outcome, fatal: outcome.result !== 'applied'}));
+			return installHomeHook().then((outcome): Reapplied => ({...outcome, fatal: outcome.result !== 'applied'}));
 		}
 		return applyHomeHook().then((result): Reapplied => ({result, detail: '', fatal: result === 'launcher-missing' || result === 'files-missing'}));
 	});
@@ -80,12 +83,6 @@ export function applyHomeHook (): Promise<HookResult> {
 export function stockHome (): Promise<void> {
 	if (!isWebOS()) return Promise.resolve();
 	return exec(STOCK_COMMAND, 10000).then(() => undefined).catch(() => undefined);
-}
-
-/** Adds or removes the start-at-boot link on its own. Resolves true when it worked. */
-export function setBootLink (on: boolean): Promise<boolean> {
-	if (!isWebOS()) return Promise.resolve(false);
-	return exec(on ? LINK_ON_COMMAND : LINK_OFF_COMMAND, 8000).then((out) => parseExit(out) === 0 && /(^|\n)(linked|unlinked)\s/.test(out)).catch(() => false);
 }
 
 /** Stops the watcher and deletes everything the setting added. */

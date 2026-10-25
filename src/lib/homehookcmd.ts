@@ -3,11 +3,11 @@
 //
 // How it works: a small watcher script (src/homehook/watch.sh) runs in the background and, whenever
 // the TV brings LG Home to the front (Home button, leaving an app with Back), opens the launcher.
-// Nothing of LG Home is replaced or mounted. A link in the startup folder (optional) starts the
-// watcher at boot; without it the watcher starts when the launcher opens.
+// Nothing of LG Home is replaced or mounted. A link in the startup folder starts the watcher at boot
+// (always added; the watcher is also started whenever the launcher opens).
 
 /** Bump when the scripts change: the launcher then rewrites the installed copy and restarts the watcher. */
-export const HOOK_VERSION = '7';
+export const HOOK_VERSION = '9';
 export const HOOK_DIR = '/media/developer/launcher-homehook';
 export const HOOK_LINK = '/var/lib/webosbrew/init.d/48-launcher-homehook';
 export const APP_QML = '/usr/palm/applications/com.webos.app.home/qml';
@@ -78,8 +78,8 @@ export interface InstallStep {
 const STOP_WATCHER = `pid="$(cat '${PID_FILE}' 2>/dev/null)"; if [ -n "$pid" ]; then pkill -P "$pid" 2>/dev/null; kill -9 "$pid" 2>/dev/null; fi; pkill -9 -f '[l]auncher-homehook/watch.sh' 2>/dev/null; rm -f '${PID_FILE}'; true`;
 
 /** The install, in small steps (one piece of a file per call), so a failure says which step it was.
- *  `boot` adds the start-at-boot link (otherwise any existing link is removed). The last step starts the watcher. */
-export function installSteps (files: HookFiles, boot: boolean): InstallStep[] {
+ *  The start-at-boot link is always added. The last step starts the watcher. */
+export function installSteps (files: HookFiles): InstallStep[] {
 	const write = (name: string, path: string, text: string): InstallStep[] => {
 		const commands = writeFileCommands(path, text);
 		return commands.map((command, i) => ({name: commands.length > 1 ? `write ${name} (${i + 1}/${commands.length})` : `write ${name}`, command}));
@@ -95,7 +95,7 @@ export function installSteps (files: HookFiles, boot: boolean): InstallStep[] {
 		{name: 'put the files in place', command: ['watch.sh', 'apply.sh', 'stock.sh', 'diagnose.sh'].map((f) => `mv -f '${HOOK_DIR}/${f}.new' '${HOOK_DIR}/${f}'`).join(' && ')},
 		{name: 'write the version', command: `echo '${HOOK_VERSION}' > '${HOOK_DIR}/version'`},
 		{name: 'make the scripts runnable', command: `chmod +x '${HOOK_DIR}/watch.sh' '${HOOK_DIR}/apply.sh' '${HOOK_DIR}/stock.sh' '${HOOK_DIR}/diagnose.sh'`},
-		{name: boot ? 'add the start-at-boot link' : 'remove the start-at-boot link', command: boot ? `ln -sf '${HOOK_DIR}/apply.sh' '${HOOK_LINK}'` : `rm -f '${HOOK_LINK}'`},
+		{name: 'add the start-at-boot link', command: `ln -sf '${HOOK_DIR}/apply.sh' '${HOOK_LINK}'`},
 		{name: 'stop an older watcher', command: STOP_WATCHER},
 		{name: 'start the watcher', command: `sh '${HOOK_DIR}/apply.sh'`}
 	];
@@ -105,8 +105,6 @@ export function installSteps (files: HookFiles, boot: boolean): InstallStep[] {
 export const APPLY_COMMAND = withStatus(`if [ -f '${HOOK_DIR}/apply.sh' ]; then sh '${HOOK_DIR}/apply.sh'; else echo files-missing; fi`);
 /** LG's own Home is wanted: the watcher stands down until it is left again. */
 export const STOCK_COMMAND = `[ -f '${HOOK_DIR}/stock.sh' ] && sh '${HOOK_DIR}/stock.sh'; echo stock`;
-export const LINK_ON_COMMAND = withStatus(`if [ -f '${HOOK_DIR}/apply.sh' ]; then ln -sf '${HOOK_DIR}/apply.sh' '${HOOK_LINK}' && echo linked; else echo files-missing; fi`);
-export const LINK_OFF_COMMAND = withStatus(`rm -f '${HOOK_LINK}'; echo unlinked`);
 /** Stops the watcher and deletes everything the setting added (and any stand-in an earlier version mounted). */
 export const REMOVE_COMMAND = `${STOP_WATCHER}; rm -f '${ALLOW_FILE}' '${ALIVE_FILE}' '${HOOK_LINK}'; while grep -q ' ${APP_QML} ' /proc/mounts; do umount '${APP_QML}' || break; done; rm -rf '${HOOK_DIR}'; echo removed`;
 export const VERSION_COMMAND = `cat '${HOOK_DIR}/version' 2>/dev/null; true`;

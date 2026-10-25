@@ -34,3 +34,14 @@ export function colorInfo (id: ClockColor): ClockColorInfo {
 	for (const c of CLOCK_COLORS) if (c.id === id) return c;
 	return CLOCK_COLORS[0];
 }
+
+/** The colours the names under the home row's icons can have: the theme's own, or one of the plain colours above. */
+export const LABEL_COLOR_IDS: readonly string[] = ['theme'].concat(CLOCK_COLORS.filter((c) => !!c.color).map((c) => c.id));
+
+export function labelColorText (id: string): string {
+	return id === 'theme' ? "The theme's own" : colorInfo(id as ClockColor).label;
+}
+
+export function labelColorValue (id: string): string | null {
+	return id === 'theme' ? null : colorInfo(id as ClockColor).color || null;
+}

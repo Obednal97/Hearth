@@ -91,3 +91,37 @@ export function setLogo (on: boolean): Promise<boolean> {
 	if (!isWebOS()) return Promise.resolve(false);
 	return exec(setLogoCommand(on), 6000).then(() => getLogo()).then((now) => now === (on ? 'on' : 'off')).catch(() => false);
 }
+
+// ---------- apps the TV keeps ready (experimental) ----------
+
+// ---------- memory and storage figures for the Debug tab (read once when that tab opens) ----------
+
+export interface DiskInfo {mount: string; totalMB: number; freeMB: number}
+export interface SystemStats {ramTotalMB: number; ramFreeMB: number; disks: DiskInfo[]}
+
+export const STATS_COMMAND = 'grep -E "^(MemTotal|MemAvailable):" /proc/meminfo; echo ---; df -k / /var /tmp /media/internal 2>/dev/null';
+
+/** The output of STATS_COMMAND as figures (-1 where a figure is missing). */
+export function parseStats (out: string): SystemStats {
+	const kb = (name: string): number => {
+		const m = new RegExp(name + ':\\s+(\\d+) kB').exec(out);
+		return m ? Math.round(Number(m[1]) / 1024) : -1;
+	};
+	const disks: DiskInfo[] = [];
+	const seen: Record<string, boolean> = {};
+	const lines = out.split('---')[1] ? out.split('---')[1].split('\n') : [];
+	for (const line of lines) {
+		const f = line.trim().split(/\s+/);
+		if (f.length < 6 || !/^\d+$/.test(f[1]) || !/^\d+$/.test(f[3]) || f[5].charAt(0) !== '/') continue;
+		const key = f[0] + ':' + f[1];
+		if (seen[key]) continue;                                  // the same disk listed for several folders
+		seen[key] = true;
+		disks.push({mount: f[5], totalMB: Math.round(Number(f[1]) / 1024), freeMB: Math.round(Number(f[3]) / 1024)});
+	}
+	return {ramTotalMB: kb('MemTotal'), ramFreeMB: kb('MemAvailable'), disks};
+}
+
+export function readStats (): Promise<SystemStats | null> {
+	if (!isWebOS()) return Promise.resolve(null);
+	return exec(STATS_COMMAND, 5000).then(parseStats).catch(() => null);
+}
