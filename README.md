@@ -242,7 +242,6 @@ Then close and reopen Hearth. After updating Hearth, restart the TV (or run the 
 - **[webOS Brew / Homebrew Channel](https://github.com/webosbrew/webos-homebrew-channel)**: the root access, `exec` service and startup folder everything rooted runs on; **throwaway96's** Homebrew Channel 0.8.0-rc1 for the elevation fixes.
 - **[LG Input Hook](https://github.com/Simon34545/lginputhook)** by Simon34545: the flash-free Home button.
 - **Clean Your TV:** the idea of reading the app list through LG's remote-control service.
-- **Lightkeeper:** studied for ideas; no code used.
 - **Photos:** the bundled nature photos are public-domain photos supplied by the maintainer.
 - Weather data: [Open-Meteo](https://open-meteo.com) (free for non-commercial use, [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/)).
 - Bundled third-party material, with its licences, is listed in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
@@ -273,5 +272,5 @@ To publish a new release and keep Homebrew Channel updates working, see [docs/PU
 - The weather code is behind a build switch: `HEARTH_WEATHER=0 npm run build` leaves it out entirely.
 - `src/lib/wallpaper.ts` lists folders with `ls -1p` and reads pictures with `dd | base64` through the Homebrew Channel service; `src/components/Wallpaper.tsx` fades each new picture in over the old one.
 - `tools/watch-tv-settings.sh` is a read-only helper for finding which TV setting a menu switch changes (it is how the LG logo setting was found).
-- `scripts/gen-repo.mjs` writes `repo/apps.json`, the file the Homebrew Channel reads (see the publishing guide).
+- `scripts/gen-repo.mjs` writes `repo/apps.json`, the file the Homebrew Channel reads.
 
