@@ -1,4 +1,4 @@
-﻿<p align="center"><img src="public/largeIcon.png" alt="Hearth icon" width="120"></p>
+<p align="center"><img src="public/largeIcon.png" alt="Hearth icon" width="120"></p>
 
 # Hearth for WebOS: a fast, calm home screen for webOS TVs
 
@@ -27,6 +27,7 @@ It is a normal webOS app (app ID `tld.my.customlauncher`). On a rooted TV it can
   ![Widget colour options on a light background](docs/screenshots/clock-colours.jpg)
 - **Your apps and inputs in one row.** Choose what is shown, re-order, or hold OK on an app for *Move to start / left / right / end*, *Hide* and *Uninstall*.
   Back on the home row opens the **Recent apps** panel (rooted TVs). **Refresh list** in Settings → Apps looks for newly installed apps straight away.
+- **Your own names and icons.** Hold OK on an app or an input in Settings → Apps or Sources to rename it and choose a different icon, or use your own picture from a USB drive or the TV's storage (rooted TVs). One entry reset puts the original back. See *Edit a name or icon* below.
 - **Wallpaper.** Plain black (or a calm blue-grey), one picture, or a slideshow of a whole folder from a USB drive or the TV's storage, or the bundled nature photos, with shuffle and an interval from 10 seconds to 1 hour.
 - **Start the TV straight into Hearth.** *Options → Add the launcher as a TV input* adds **Hearth** to the TV's input list, next to HDMI 1 and Live TV. Choose it, set the TV to start on its last input,
   and the TV boots into Hearth.
@@ -109,7 +110,7 @@ from the Homebrew Channel or Dev Manager.
 | Home | hold OK | The app's menu: move it, hide it, uninstall it |
 | Home | Back | Open the Recent apps panel (OK opens an app, hold OK closes it, ↑ Close all) |
 | Settings | ← → on the tab bar | Apps · Sources · Look · Clock · Weather · Wallpaper · Options |
-| Settings (apps) | OK / hold OK | Show or hide an app / re-order. **Refresh list** looks for new apps |
+| Settings (Apps, Sources) | OK / hold OK | Show or hide an item / edit its name and icon. **Re-order** and **Refresh list** are the buttons above the grid |
 | Settings (other tabs) | OK, or ← → | OK steps through the choices; ← → nudge numbers (they stop at the ends) |
 | Any other screen | Back | Go back one screen |
 
@@ -123,6 +124,20 @@ from the Homebrew Channel or Dev Manager.
 - **Wallpaper:** the picture or slideshow, interval and shuffle, **Widget colour** and **Widget opacity**.
 - **Options (rooted TVs):** the TV input; live app list; *Replace LG Home with a helper script*; *Replace LG Home with a script and SAM*;
   *Show the LG logo when the TV starts*; and, last, *Show the Debug tab*.
+
+### Edit a name or icon
+
+In **Settings → Apps** or **Sources**, move to an item and **hold OK** (release OK, then press ↓ to edit). The home row shows each change at once, and it is kept across restarts and updates.
+
+| | |
+|---|---|
+| ![Editing an app](docs/screenshots/edit-app-icon.jpg) | ![Editing an input](docs/screenshots/edit-source-icon.jpg) |
+
+- **Name:** up to 24 characters. For an input, ← → step through suggestions (PlayStation 5, Xbox, Laptop and more); OK types any name with the on-screen keyboard. For an app, OK types a name.
+- **Icon:** ← → or OK step through the icons that come with Hearth: inputs have 16 symbols (HDMI port, TV, console, laptop, soundbar...), apps have the bundled logos of common apps.
+- **Use a picture from a USB drive or the TV:** pick your own image (a square one works best; it is cropped to a square and shrunk). Needs a rooted TV, because a web app cannot read files itself. The picture is saved inside Hearth's settings, so the USB drive can be removed afterwards.
+- **Use the app's (or the TV's) name and icon:** puts the original back.
+- The names in the *Hide* and *Uninstall* menus stay the app's real names.
 
 ### Wallpaper
 

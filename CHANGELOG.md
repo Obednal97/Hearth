@@ -2,6 +2,7 @@
 
 ## 1.2.0
 
+- **Edit names and icons** (Settings → Apps or Sources, hold OK on an item): rename an app or input, pick another icon (16 input symbols, the bundled app logos), or use your own picture from a USB drive or the TV (rooted TVs, saved inside Hearth's settings). *Use the app's / TV's name and icon* resets it. See the README, "Edit a name or icon".
 - **Hearth for WebOS** is the public name; the README now explains the two ways to replace LG Home (helper script, SAM), their known problems, and a recommended setup with Input Hook. The Home key code is 773 on the test remote; others may differ.
 - **Back on the home row** always opens the Recent apps panel; the old "jump to the first app" is gone.
 - **Quiet mode** (apps fade after a chosen idle time, 10-60 s; off by default), **OLED shift** (slow pixel shift, on by default, with an off switch), **icon spacing**, **wallpaper opacity**, **name colour**, and **bundled nature photos** with a slideshow. Quiet mode and OLED shift follow ideas from iulyax27 (pull request #10).
