@@ -48,6 +48,7 @@ It is a normal webOS app (app ID `tld.my.customlauncher`). On a rooted TV it can
 |---|---|
 | Reference device (everything tested) | Firmware **04.60.90**, **webOS 7.6.0**, rooted, Homebrew Channel 0.7.3 |
 | Also reported by users | LG firmware **03.01.16** (reported as webOS 8.0.0), webOS 6.x (a Settings display bug found there was fixed in 1.1.0) and the webOS 4.x TV it was first built on |
+| webOS 11 (LG C4 and others) | **The permission fix works**, reported by several users (see [issue #5](https://github.com/rudra-avatar/Hearth/issues/5) and *webOS 11* below); the maintainer has no webOS 11 TV |
 | Newer versions | **Should work.** Hearth is compiled for old web views (Chrome 53) and uses only standard web features and TV services that LG keeps across versions. Please report anything odd |
 
 ### Rooted TV (Homebrew Channel): everything
@@ -68,7 +69,6 @@ The Homebrew Channel lets Hearth run a few fixed commands on the TV. That powers
 ### Experimental, not tested on a TV
 
 - **webOS 3.x (Chromium 38).** There is no webOS 3 TV to try it on; the build follows the web view's known limits and a contributor's pull requests. One install file serves every TV: a loader checks whether the web view supports CSS custom properties (Chrome 49+, so everything from webOS 4). Newer TVs load `assets/app.js`; webOS 3 TVs load `assets/app.legacy.js` (ES5 with polyfills, custom properties worked out by the app, `src/lib/cssvars.ts`). On webOS 3 the *helper script* opens Hearth when the Home bar is shown; the SAM method does not apply. webOS 1 and 2 are not supported (no known way to root them).
-- **webOS 11 permission fix** (see below).
 - **The no-root TV app list** (above).
 
 ## Install
@@ -138,6 +138,7 @@ In **Settings → Apps** or **Sources**, move to an item and **hold OK** (releas
 - **Use a picture from a USB drive or the TV:** pick your own image (a square one works best; it is cropped to a square and shrunk). Needs a rooted TV, because a web app cannot read files itself. The picture is saved inside Hearth's settings, so the USB drive can be removed afterwards.
 - **Use the app's (or the TV's) name and icon:** puts the original back.
 - The names in the *Hide* and *Uninstall* menus stay the app's real names.
+- If holding OK does nothing, power-cycle the TV (see Troubleshooting).
 
 ### Wallpaper
 
@@ -212,7 +213,7 @@ If a rooted TV says "the TV refused the command", or the Homebrew Channel gives 
 
 ## webOS 11: one extra step on rooted TVs
 
-On webOS 11 (tested on an LG C4, firmware 43.21.73, by ganondorft) the TV only lets an app use the Homebrew Channel's command service when the app's Luna permissions include `org.webosbrew.hbchannel.service.group`. The app installer leaves that out for Hearth, so even on a rooted TV every option that needs root is greyed out with *"the TV refused the command"*, the app icons are letters, and the wallpaper picker can't read the storage. Older webOS versions do not need this.
+On webOS 11 (found on an LG C4, firmware 43.21.73, by ganondorft; the fix is reported working by several users) the TV only lets an app use the Homebrew Channel's command service when the app's Luna permissions include `org.webosbrew.hbchannel.service.group`. The app installer leaves that out for Hearth, so even on a rooted TV every option that needs root is greyed out with *"the TV refused the command"*, the app icons are letters, and the wallpaper picker can't read the storage. Older webOS versions do not need this.
 
 The script `tools/webos11-permission.sh` (inside the app) adds the permission. The installer writes Hearth's permission file again on every install or update, so the script installs itself as a boot hook that checks it at each start. Once, over SSH on the TV:
 
@@ -237,6 +238,7 @@ Then close and reopen Hearth. After updating Hearth, restart the TV (or run the 
 - **USB drive missing in the picker:** plug it in, then open the picker again. The TV must have mounted it.
 - **The weather doesn't appear:** check the TV's internet connection; it tries again by itself after 2, 10 and then 30 minutes.
 - **The Home button shows LG Home for a moment:** the helper script can only react once LG Home is in front. Use the **Input Hook** app, or *Replace LG Home with a script and SAM* (see Replacing LG Home).
+- **Hold OK does nothing** on an app in the home row, or in Settings → Apps or Sources (so the app menu and the name and icon editor do not open): users report that **turning the TV off and on again** (a power cycle: unplug it for a minute) fixes it. The cause is not known yet.
 - **Root options greyed out with "the TV refused the command", or elevation (root) problems:** update the Homebrew Channel to **0.8.0-rc1** ([release page](https://github.com/throwaway96/webos-homebrew-channel/releases/tag/v0.8.0-rc1)) and open it once. On webOS 11 also do the permission step above.
 - **Odd layout after changing sizes:** Settings → Look → **Reset look and clock**.
 
