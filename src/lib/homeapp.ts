@@ -1,19 +1,19 @@
 // "Set Hearth as the TV's Home app": Hearth's id goes into the TV's own Home app setting, so the Home button opens it
 // directly. See homeappcmd.ts for how it works, and src/homeapp/README.md for the limits and how to undo it over SSH.
 //
-// The setting is changed with a plain Luna call where the TV allows that (no root needed), and through the Homebrew
-// Channel's root shell where it does not.
+// The setting is read and changed through the Homebrew Channel's root shell: settingsservice answers an app's own Luna
+// call for it with "Access denied" (webOS 4.5), so this needs a rooted TV.
 
 import guardSh from '../homeapp/guard.sh?raw';
 import {exec} from './apps';
 import {APP_ID} from '../config/constants';
 import {appExists} from './launch';
 import {log} from './log';
-import {isWebOS, lunaCall} from './luna';
+import {isWebOS} from './luna';
 import {LG_HOME_ID, homeSettingCommand} from './system';
 import {
-	FULL_HOME_ID, READ_PARAMS, REMOVE_GUARD_COMMAND, SAVED_COMMAND, SETTINGS_SERVICE, guardSteps, homeAppMessage, isAppId, isMissing,
-	parseHomeSetting, parseSaved, writeParams, type HomeAppResult
+	FULL_HOME_ID, READ_PARAMS, REMOVE_GUARD_COMMAND, SAVED_COMMAND, SETTINGS_SERVICE, guardSteps, homeAppMessage, isAppId,
+	parseHomeSetting, parseSaved, type HomeAppResult
 } from './homeappcmd';
 
 export type {HomeAppResult};
@@ -25,23 +25,12 @@ const READ_COMMAND = `luna-send -n 1 -f ${SETTINGS_SERVICE}/getSystemSettings '$
 /** The app the Home button opens: its id, '' when this TV has no such setting, null when it could not be read. */
 export function readHomeApp (): Promise<string | null> {
 	if (!isWebOS()) return Promise.resolve(null);
-	return lunaCall(`${SETTINGS_SERVICE}/getSystemSettings`, READ_PARAMS).then(
-		(reply) => parseHomeSetting(reply),
-		(error: Error) => {
-			if (isMissing(error && error.message)) return '';
-			return exec(READ_COMMAND, 6000).then(parseHomeSetting).catch(() => null);
-		}
-	);
+	return exec(READ_COMMAND, 6000).then(parseHomeSetting).catch(() => null);
 }
 
-/** Sets the Home app (a Luna call first, then the root shell), and reads it back. Resolves true once the TV names it. */
+/** Sets the Home app, and reads it back. Resolves true once the TV names it. */
 function writeHomeApp (appId: string): Promise<boolean> {
-	const viaRoot = (): Promise<unknown> => exec(homeSettingCommand(appId), 6000);
-	return lunaCall(`${SETTINGS_SERVICE}/setSystemSettings`, writeParams(appId))
-		.catch((error: Error) => {
-			log(`Home app: the TV refused the Luna call (${error && error.message ? error.message : 'no answer'}), trying the root shell`);
-			return viaRoot();
-		})
+	return exec(homeSettingCommand(appId), 6000)
 		.then(() => readHomeApp())
 		.then((now) => now === appId, () => false);
 }
@@ -56,13 +45,13 @@ function savedOnTv (): Promise<string> {
 	return exec(SAVED_COMMAND, 5000).then(parseSaved).catch(() => '');
 }
 
-/** The start-up check that puts `previous` back if Hearth is uninstalled (rooted TVs; skipped quietly without root). */
+/** The start-up check that puts `previous` back if Hearth is uninstalled (a failure is only logged: the method itself works). */
 function installGuard (previous: string): Promise<void> {
 	const steps = guardSteps(lf(guardSh), previous);
 	const run = (i: number): Promise<void> => (i >= steps.length ? Promise.resolve()
 		: exec(steps[i].command, 6000).then(() => run(i + 1)));
 	return run(0).catch((error: Error) => {
-		log(`Home app: no start-up check on this TV (it needs root): ${error && error.message ? error.message : 'no answer'}`);
+		log(`Home app: the start-up check could not be written: ${error && error.message ? error.message : 'no answer'}`);
 		exec(REMOVE_GUARD_COMMAND, 5000).catch(() => undefined);
 	});
 }

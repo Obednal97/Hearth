@@ -1,7 +1,7 @@
 # Set Hearth as the TV's Home app (webOS 4.x)
 
 Source of the "Set Hearth as the TV's Home app" setting (Settings → Options). The code is in `src/lib/homeapp.ts` and
-`src/lib/homeappcmd.ts`; this folder holds the start-up check that the launcher writes to rooted TVs.
+`src/lib/homeappcmd.ts`; this folder holds the start-up check that the launcher writes to the TV.
 
 **Nothing runs in the background, and nothing is replaced or mounted.** The Home button opens whichever app the TV's own
 system setting `general.defaultApps.home` names. This method writes Hearth's id (`tld.my.customlauncher`) there.
@@ -16,12 +16,13 @@ react to `com.webos.app.fullhome` where a TV does report it in front.)
 ## The switch (Settings → Options)
 
 - **On:** reads the setting, keeps the value it found (on webOS 4.5: `com.webos.app.fullhome`), and writes Hearth's id.
-  It asks the TV with a plain Luna call first and uses the Homebrew Channel's root shell only if the TV refuses that.
+  It needs root: the setting is changed through the Homebrew Channel's root shell, because settingsservice answers an
+  app's own Luna call for it with "Access denied" (webOS 4.5).
   It is greyed out on a TV that has no such setting, and while the helper script or the SAM method is on.
 - **Off:** puts the kept value back. If that is not known (the setting was changed by hand, or Hearth's settings were
   cleared), it uses the value the start-up check kept, and otherwise LG's own Home: `com.webos.app.fullhome` where that app
   exists, else `com.webos.app.home`. If the setting no longer names Hearth, it is left as it is.
-- **On a rooted TV** it also writes a small start-up check (`guard.sh`, in `/media/developer/launcher-homeapp`, linked as
+- It also writes a small start-up check (`guard.sh`, in `/media/developer/launcher-homeapp`, linked as
   `/var/lib/webosbrew/init.d/46-launcher-homeapp`) together with the value to put back. At each start, if Hearth is no longer
   installed and the setting still names it, the check puts the old value back and deletes itself. While Hearth is
   installed it does nothing. Switching the method off deletes it.
@@ -29,8 +30,7 @@ react to `com.webos.app.fullhome` where a TV does report it in front.)
 ## Limits
 
 - **Uninstalling Hearth while it is on:** until the next start the Home button points at an app that is gone (not tried: what the TV then shows).
-  On a rooted TV the start-up check fixes it at the next start; on a TV without root, switch the method off before
-  uninstalling (or undo it over SSH, below).
+  The start-up check fixes it at the next start (or switch the method off before uninstalling, or undo it over SSH, below).
 - Only tested on webOS 4.5. Other versions may have the setting and ignore it, or not have it (then the row is greyed out).
 - The "LG Home" tile still opens `com.webos.app.home`, as before.
 

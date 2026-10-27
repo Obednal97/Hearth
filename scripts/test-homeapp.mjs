@@ -24,7 +24,6 @@ eq(h.parseHomeSetting(''), null, 'no output: null');
 eq(h.parseHomeSetting({returnValue: true, settings: {defaultApps: {home: "x'; reboot"}}}), '', 'a value that is not an app id is never used');
 eq(h.isMissing('There is no matched result from DB'), true, 'the "no such setting" reply is recognised');
 eq(h.isMissing('Denied method call'), false, 'and a refusal is not taken for it');
-eq(JSON.stringify(h.writeParams('tld.my.customlauncher')), '{"category":"general","settings":{"defaultApps":{"home":"tld.my.customlauncher"}}}', 'the change is the one checked on a webOS 4.5 TV');
 
 // ---- messages ----
 eq(h.homeAppMessage('restored', 'com.webos.app.fullhome'), 'Turned off. The Home button opens LG Home again', 'LG\'s overlay is called LG Home');
