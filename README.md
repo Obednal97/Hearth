@@ -167,7 +167,9 @@ the last-resort attempts skip the certificate check, which is acceptable for pub
 
 ## Reassign remote buttons (rooted TVs)
 
-**Settings → Options → Reassign remote buttons** lists the remote's partner buttons (Netflix, Prime Video, Disney+, Rakuten TV / Movies, LG Channels) and what each does.
+**Settings → Options → Reassign remote buttons** first asks which remote you have (Magic Remote 2019, Magic Remote 2020 and later, or the standard remote; the one the TV heard last is offered first) and shows a simple drawing of it.
+The buttons you can reassign are highlighted, with what each does now written beside it. **Press one on your real remote** and its choices open; or move to it with the arrows and press OK.
+*Other, or not listed* (and *Show as a list*) shows the plain list instead: the remote's partner buttons (Netflix, Prime Video, Disney+, Rakuten TV / Movies, LG Channels) and what each does.
 OK on a button chooses its new job: **any app**, **an input** (HDMI 1, Live TV…), **Hearth**, **mute or unmute**, **nothing**, or **the TV's own action** again.
 **Press a button to reassign it…** lets the remote say which button you mean, so other buttons work too (Guide, the colour buttons, the microphone…). It is the surest way: remotes from different years can send different codes for the same button (the Rakuten TV / Movies button is one, and Hearth treats both of its codes as one button).
 The arrows, OK, Back, Home, power, volume, channels and the number keys (hold a number = Quick Access) can never be reassigned, so the remote always gets you out.
@@ -178,6 +180,7 @@ The arrows, OK, Back, Home, power, volume, channels and the number keys (hold a 
 - **Turn it off:** the first row, *Reassigned buttons: On* → OK. Every button does what the TV does again, at once; your list is kept for later.
 - **Limits:** with the TV off, an app button may still switch the TV on into the original app (that is decided before Hearth's filter runs).
   Reassigning Prime Video also replaces its hold-for-Alexa. Tested on webOS 4.5; on other versions it is experimental.
+- **LG Input Hook:** if it is installed, the buttons it has its own bindings for are marked (it acts first, so its binding decides). Hearth only reads its file. Idea from iulyax27.
 - **Details, and how to undo it over SSH:** [`src/remap/README.md`](src/remap/README.md).
 
 ## Replacing LG Home (rooted TVs)
