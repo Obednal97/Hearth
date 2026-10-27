@@ -44,7 +44,7 @@ export interface SystemInfo {
 }
 
 /** The options that run shell commands, so they can't work without root. */
-export const ROOT_OPTIONS = ['takeover', 'replaceHome', 'tvInput', 'lgLogo', 'appPreviews', 'remap'];
+export const ROOT_OPTIONS = ['takeover', 'replaceHome', 'homeApp', 'tvInput', 'lgLogo', 'appPreviews', 'remap'];
 
 /** The ways of replacing LG Home cannot be on together: the helper script reacts to LG Home coming to the front, the
  *  SAM method keeps LG Home from ever starting, and the Home app setting sends the Home button to Hearth itself. Each

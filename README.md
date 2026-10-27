@@ -220,8 +220,8 @@ The TV opens Hearth through LG Home's own place, so **LG Home is never drawn**. 
 
 The Home button opens whatever app the TV's own setting `defaultApps.home` names; this method writes Hearth there, so **Home opens Hearth directly**, with no LG Home first and nothing running in the background. On webOS 4.x it is the one that works: there Home shows LG's full-screen overlay (`com.webos.app.fullhome`), which never becomes the app in front, so methods 1 and 2 never see it. Tested on webOS 4.5.
 
-- It keeps the value it found and puts it back when you turn it off. It uses a plain Luna call where the TV allows it, else the root shell. Greyed out on a TV without the setting, and while method 1 or 2 is on (each greys the others out).
-- **Problem: uninstalling Hearth while it is on** leaves Home pointing at an app that is gone. On a rooted TV a small start-up check puts the old value back at the next start; otherwise turn it off first.
+- It keeps the value it found and puts it back when you turn it off. Greyed out on a TV without the setting, and while method 1 or 2 is on (each greys the others out). Needs root: the TV refuses the change from an app itself.
+- **Problem: uninstalling Hearth while it is on** leaves Home pointing at an app that is gone until the next start, when a small start-up check puts the old value back. Turning it off first avoids that.
 - Undo steps over SSH and details: [`src/homeapp/README.md`](src/homeapp/README.md).
 
 ### Input Hook (flash-free Home button)

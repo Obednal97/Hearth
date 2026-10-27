@@ -5,9 +5,9 @@
 // How it works: the Home button opens the app named in the TV's system setting general.defaultApps.home. On webOS 4.x
 // that is LG's com.webos.app.fullhome, an overlay that never becomes the app in front, so neither the helper script nor
 // the SAM method can see it. This method writes Hearth's id into the setting instead, and keeps the value it found so
-// switching it off can put that back. Nothing runs in the background, and it works without root where the TV lets
-// apps change the setting. On a rooted TV a small start-up check also puts the old value back if Hearth is uninstalled
-// while the setting still names it.
+// switching it off can put that back. Nothing runs in the background. It needs root: settingsservice refuses an app's
+// own Luna call for this setting ("Access denied"). A small start-up check also puts the old value back if Hearth is
+// uninstalled while the setting still names it.
 
 import {writeFileCommands, type InstallStep} from './homehookcmd';
 
@@ -19,10 +19,6 @@ export const FULL_HOME_ID = 'com.webos.app.fullhome';
 
 export const READ_PARAMS = {category: 'general', keys: ['defaultApps']};
 
-export function writeParams (appId: string): object {
-	return {category: 'general', settings: {defaultApps: {home: appId}}};
-}
-
 const APP_ID_PATTERN = /^[A-Za-z0-9._-]+$/;
 
 export function isAppId (value: unknown): value is string {
@@ -30,7 +26,7 @@ export function isAppId (value: unknown): value is string {
 }
 
 /** The Home app out of a getSystemSettings reply: its id, '' when the TV answered but has no such setting, null when
- *  the reply is no answer at all. The reply can be the parsed object (a Luna call) or luna-send's printed JSON. */
+ *  the reply is no answer at all. The reply can be luna-send's printed JSON or the parsed object. */
 export function parseHomeSetting (reply: unknown): string | null {
 	let data = reply;
 	if (typeof data === 'string') {

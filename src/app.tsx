@@ -380,8 +380,7 @@ export function App () {
 				log(root === 'yes' ? 'Root check: the Homebrew Channel answered' : `Root check: not available (${rootDetail || 'no answer'})`);
 				if (!live) return undefined;
 				if (root === 'yes') readHomebrewVersion().then((homebrew) => { if (live && homebrew) setVersions((p) => ({...p, homebrew})); });
-				// the Home app setting can often be read and changed without root, so it is read either way
-				if (root === 'no') return readHomeApp().then((homeApp) => { if (live) setSystemInfo({homeApp, homeHook: null, logo: null, takeover: null, root, rootDetail}); });
+				if (root === 'no') { setSystemInfo({homeApp: null, homeHook: null, logo: null, takeover: null, root, rootDetail}); return undefined; }
 				return Promise.all([getHookStatus(), getLogo(), getTakeoverStatus(), readHomeApp()]).then(([homeHook, logo, takeover, homeApp]) => { if (live) setSystemInfo({homeHook, logo, takeover, homeApp, root, rootDetail}); });
 			});
 			return () => { live = false; };
