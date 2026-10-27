@@ -85,7 +85,7 @@ export function RemoteButtons ({remap, targets, captured, busy, onSwitch, onAssi
 	if (mode === 'list') {
 		rows.push({key: 'switch', kind: 'switch', label: `Reassigned buttons: ${remap.on ? 'On' : 'Off'}`,
 			detail: busy ? 'One moment…' : remap.on ? 'The buttons below do what you chose. OK turns it off: every button does what the TV does again' : 'Every button does what the TV does. OK turns your choices on'});
-		rows.push({key: 'capture', kind: 'capture', label: 'Press a button to reassign it…', detail: 'Any button except the arrows, OK, Back, Home, power, volume, channels and numbers'});
+		rows.push({key: 'capture', kind: 'capture', label: 'Press a button to reassign it…', detail: 'The surest way: remotes from different years can send different codes for the same button. Not the arrows, OK, Back, Home, power, volume, channels or numbers'});
 		listedButtons(remap).forEach((name) => rows.push({key: name, kind: 'button', name, label: buttonLabel(name), detail: actionText(remap.keys[name], targets)}));
 	} else if (mode === 'waiting') {
 		rows.push({key: 'wait', kind: 'info', label: 'Press the button on the remote now', detail: 'Hearth is listening for one press, for up to a minute · Back cancels'});

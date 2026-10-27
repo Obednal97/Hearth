@@ -34,6 +34,13 @@ that setting changes, without a restart.
 Buttons are stored by the TV's own key name (`Key_webOS_Netflix`, `Key_webOS_Amazon`…), or `#<code>` for a button
 without a name, so a map keeps working if a firmware numbers its keys differently.
 
+**One button, two names.** Remotes from different years can send different keys for the same printed button. The
+Rakuten TV / Movies button sends `Key_webOS_USP` on 2019 remotes (the MR19 Magic Remote logs it as `KEY_MOVIES`; LG's
+own filter calls it "a Rakuten-only keycode") and `Key_webOS_RakutenTV` on later ones. Hearth shows one *Rakuten TV /
+Movies* row and stores it as `Key_webOS_RakutenTV`; the filter treats `Key_webOS_USP` as the same button (`ALIASES` in
+`keyfilter.js` and `remapcmd.ts`). "Press a button" always records what the remote really sends, so it is the surest
+way to pick any other button.
+
 ## Known limits
 
 - **Power on with an app button.** With the TV off, LG's app buttons can switch it on straight into their app. That

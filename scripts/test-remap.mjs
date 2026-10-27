@@ -28,6 +28,12 @@ eq(Object.keys(clean.keys).length, 3, 'setButton does not change the old map');
 eq(r.setButton(clean, 'Key_webOS_Disneyplus', {t: 'none'}).keys.Key_webOS_Disneyplus.t, 'none', 'a new button is added');
 eq(r.listedButtons({on: true, keys: {'#77': {t: 'none'}}}).join(','), 'Key_webOS_Netflix,Key_webOS_Amazon,Key_webOS_Disneyplus,Key_webOS_RakutenTV,Key_webOS_LGChannels,#77', 'the list shows the partner buttons, then any other reassigned button');
 eq([r.buttonLabel('Key_webOS_Amazon'), r.buttonLabel('#1086'), r.buttonLabel('Key_webOS_Something')].join('|'), 'Prime Video|Button 1086|Something', 'button labels');
+// one button, two key names (2019 remotes send Key_webOS_USP for Rakuten TV / Movies)
+eq(r.buttonLabel('Key_webOS_USP') + ' | ' + r.buttonLabel('Key_webOS_RakutenTV'), 'Rakuten TV / Movies | Rakuten TV / Movies', 'the Movies key (USP) and the Rakuten TV key are one button');
+eq(JSON.stringify(r.cleanRemap({on: true, keys: {Key_webOS_USP: {t: 'mute'}}}).keys), '{"Key_webOS_RakutenTV":{"t":"mute"}}', 'a button saved under its other name is stored under the usual one');
+eq(JSON.stringify(r.cleanRemap({on: true, keys: {Key_webOS_RakutenTV: {t: 'none'}, Key_webOS_USP: {t: 'mute'}}}).keys), '{"Key_webOS_RakutenTV":{"t":"none"}}', 'the usual name wins if both were saved');
+eq(Object.keys(r.setButton({on: true, keys: {}}, 'Key_webOS_USP', {t: 'none'}).keys).join(), 'Key_webOS_RakutenTV', 'a captured Movies key is saved as the Rakuten TV button');
+eq(r.listedButtons({on: true, keys: {}}).indexOf('Key_webOS_USP'), -1, 'and is not listed twice');
 eq([r.sameAction({t: 'app', id: 'a'}, {t: 'app', id: 'a'}), r.sameAction({t: 'app', id: 'a'}, {t: 'app', id: 'b'}), r.sameAction(null, undefined), r.sameAction({t: 'mute'}, null)].join(), 'true,false,true,false', 'sameAction');
 eq(r.mapJson(clean, true).indexOf('"capture":1') > 0, true, 'the capture flag is sent only when asked for');
 eq(r.mapJson(clean).indexOf('capture'), -1, 'and is never saved');
@@ -51,7 +57,7 @@ try { es5same = as('es5') === as('esnext'); } catch { es5same = false; }
 eq(es5same, true, 'keyfilter.js is plain ES5');
 
 const QtKeys = {Key_Left: 0x01000012, Key_Up: 0x01000013, Key_Right: 0x01000014, Key_Down: 0x01000015, Key_Return: 0x01000004, Key_Super_L: 0x01000053, Key_VolumeMute: 0x01000071, Key_0: 0x30, Key_5: 0x35};
-const WebOSKeys = {Key_webOS_Netflix: 0x01200101, Key_webOS_Amazon: 0x01200102, Key_webOS_Red: 0x01200201, Key_webOS_Back: 0x01200001};
+const WebOSKeys = {Key_webOS_Netflix: 18874408, Key_webOS_Amazon: 18874409, Key_webOS_RakutenTV: 18874426, Key_webOS_USP: 18874413, Key_webOS_Red: 18874385, Key_webOS_Back: 18874371};
 const makeTv = () => {
 	const tv = {launched: [], muted: 0, logs: [], subscribed: null, fg: 'com.example.other', launchOk: true};
 	const ctx = {
@@ -98,6 +104,20 @@ eq(tv.key(WebOSKeys.Key_webOS_Netflix), NEXT, 'when the TV takes no app launches
 tv.launchOk = true;
 tv.subscribed.cb('not json');
 eq(tv.key(WebOSKeys.Key_webOS_Netflix), NEXT, 'a broken map turns everything off');
+
+// the Movies key of 2019 remotes is the Rakuten TV button
+tv = makeTv();
+tv.push({on: true, keys: {Key_webOS_RakutenTV: {t: 'app', id: 'com.example.youtube'}}});
+eq(tv.key(WebOSKeys.Key_webOS_USP) + ' ' + tv.launched.join(), '1 com.example.youtube {}', 'a Rakuten TV / Movies job works for the 2019 Movies key (USP)');
+eq(tv.key(WebOSKeys.Key_webOS_RakutenTV) + ' ' + tv.launched.length, '1 2', 'and for the later Rakuten TV key');
+tv = makeTv();
+tv.push({on: true, keys: {Key_webOS_USP: {t: 'app', id: 'com.example.old'}}});
+eq(tv.key(WebOSKeys.Key_webOS_USP) + ' ' + tv.launched.join(), '1 com.example.old {}', 'a map saved under the USP name still works');
+tv = makeTv();
+tv.push({on: true, keys: {}, capture: 1});
+tv.fg = 'tld.my.customlauncher';
+tv.key(WebOSKeys.Key_webOS_USP);
+eq(tv.launched.join(), 'tld.my.customlauncher {"hearthRemapKey":"Key_webOS_RakutenTV"}', 'pressing the Movies key in "Press a button" reports the Rakuten TV button');
 
 // "Press a button"
 tv = makeTv();

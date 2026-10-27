@@ -167,9 +167,9 @@ the last-resort attempts skip the certificate check, which is acceptable for pub
 
 ## Reassign remote buttons (rooted TVs)
 
-**Settings → Options → Reassign remote buttons** lists the remote's partner buttons (Netflix, Prime Video, Disney+, Rakuten TV, LG Channels) and what each does.
+**Settings → Options → Reassign remote buttons** lists the remote's partner buttons (Netflix, Prime Video, Disney+, Rakuten TV / Movies, LG Channels) and what each does.
 OK on a button chooses its new job: **any app**, **an input** (HDMI 1, Live TV…), **Hearth**, **mute or unmute**, **nothing**, or **the TV's own action** again.
-**Press a button to reassign it…** lets the remote say which button you mean, so other buttons work too (Guide, the colour buttons, the microphone…).
+**Press a button to reassign it…** lets the remote say which button you mean, so other buttons work too (Guide, the colour buttons, the microphone…). It is the surest way: remotes from different years can send different codes for the same button (the Rakuten TV / Movies button is one, and Hearth treats both of its codes as one button).
 The arrows, OK, Back, Home, power, volume, channels and the number keys (hold a number = Quick Access) can never be reassigned, so the remote always gets you out.
 
 - **How:** the TV decides what a button does in a chain of small key filters inside its window manager; that is where the Netflix button opens Netflix, for both remotes.

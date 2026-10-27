@@ -11,7 +11,7 @@
 import {writeFileCommands, withStatus} from './homehookcmd';
 
 /** Bump when keyfilter.js or apply.sh change: Hearth then rewrites the copy on the TV. */
-export const REMAP_VERSION = '1';
+export const REMAP_VERSION = '2';
 export const REMAP_DIR = '/media/developer/launcher-remap';
 export const REMAP_LINK = '/var/lib/webosbrew/init.d/47-launcher-remap';
 export const REMAP_LOG = '/tmp/launcher-remap.log';
@@ -44,9 +44,8 @@ export const BUTTONS: ButtonInfo[] = [
 	{name: 'Key_webOS_Netflix', label: 'Netflix', common: true},
 	{name: 'Key_webOS_Amazon', label: 'Prime Video', common: true},
 	{name: 'Key_webOS_Disneyplus', label: 'Disney+', common: true},
-	{name: 'Key_webOS_RakutenTV', label: 'Rakuten TV', common: true},
+	{name: 'Key_webOS_RakutenTV', label: 'Rakuten TV / Movies', common: true},
 	{name: 'Key_webOS_LGChannels', label: 'LG Channels', common: true},
-	{name: 'Key_webOS_USP', label: 'Movies (Rakuten TV)'},
 	{name: 'Key_webOS_New', label: 'Partner button'},
 	{name: 'Key_webOS_IVI', label: 'ivi'},
 	{name: 'Key_webOS_Hotstar', label: 'Hotstar'},
@@ -74,10 +73,21 @@ export const BUTTONS: ButtonInfo[] = [
 	{name: 'Key_webOS_LiveZoom', label: 'Live Zoom'}
 ];
 
+/** One button, different key names on different remotes. The Rakuten TV / Movies button sends Key_webOS_USP on 2019
+ *  remotes (the MR19 Magic Remote calls it KEY_MOVIES) and Key_webOS_RakutenTV on later ones. Hearth stores the name on
+ *  the right, and the key filter treats the one on the left as the same button. */
+export const ALIASES: Record<string, string> = {Key_webOS_USP: 'Key_webOS_RakutenTV'};
+
+/** The name a button is stored under. */
+export function canonicalButton (name: string): string {
+	return ALIASES[name] || name;
+}
+
 const NAME_RE = /^(Key_webOS_[A-Za-z0-9]{1,30}|#[0-9]{1,10})$/;
 const APP_ID_RE = /^[A-Za-z0-9._-]{1,120}$/;
 
 export function buttonLabel (name: string): string {
+	name = canonicalButton(name);
 	const known = BUTTONS.filter((b) => b.name === name)[0];
 	if (known) return known.label;
 	if (name.charAt(0) === '#') return `Button ${name.slice(1)}`;
@@ -108,7 +118,8 @@ export function cleanRemap (value: unknown): RemapConfig {
 	if (v.keys && typeof v.keys === 'object') {
 		Object.keys(v.keys as object).forEach((name) => {
 			const action = cleanAction((v.keys as Record<string, unknown>)[name]);
-			if (NAME_RE.test(name) && action) keys[name] = action;
+			// a button saved under another of its names is stored under the usual one (unless that one has a job already)
+			if (NAME_RE.test(name) && action && !keys[canonicalButton(name)]) keys[canonicalButton(name)] = action;
 		});
 	}
 	return {on: v.on === true, keys};
@@ -116,6 +127,7 @@ export function cleanRemap (value: unknown): RemapConfig {
 
 /** A copy of the map with `name` set to `action` (null: the TV's own action again). */
 export function setButton (remap: RemapConfig, name: string, action: RemapAction | null): RemapConfig {
+	name = canonicalButton(name);
 	const keys: Record<string, RemapAction> = {};
 	Object.keys(remap.keys).forEach((k) => { if (k !== name) keys[k] = remap.keys[k]; });
 	if (action) keys[name] = action;

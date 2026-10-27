@@ -9,7 +9,7 @@ import {classifyFailure, failureReason} from './failure';
 import {isWebOS} from './luna';
 import {lastLine, parseExit, withStatus} from './homehookcmd';
 import {
-	captureCommand, CHECK_COMMAND, parseRemapResult, remapInstallSteps, REMAP_VERSION, REMOVE_COMMAND, saveMapCommand,
+	canonicalButton, captureCommand, CHECK_COMMAND, parseRemapResult, remapInstallSteps, REMAP_VERSION, REMOVE_COMMAND, saveMapCommand,
 	VERSION_COMMAND, type RemapConfig, type RemapResult
 } from './remapcmd';
 
@@ -100,7 +100,7 @@ export function capturedButton (): string | null {
 		if (!raw) return null;
 		const params = JSON.parse(raw) as {hearthRemapKey?: unknown};
 		const name = params && params.hearthRemapKey;
-		return typeof name === 'string' && /^(Key_webOS_[A-Za-z0-9]{1,30}|#[0-9]{1,10})$/.test(name) ? name : null;
+		return typeof name === 'string' && /^(Key_webOS_[A-Za-z0-9]{1,30}|#[0-9]{1,10})$/.test(name) ? canonicalButton(name) : null;
 	} catch {
 		return null;
 	}
