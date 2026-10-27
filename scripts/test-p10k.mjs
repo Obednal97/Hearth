@@ -13,7 +13,7 @@ const eq = (got, want, name) => { const ok = JSON.stringify(got) === JSON.string
 const ids = a.PREFS.map((p) => p.id);
 eq(['useHomebrew', 'closeHomeNow', 'useAsHome'].filter((i) => ids.indexOf(i) !== -1), [], 'live-list, close-now and alternative-method rows are gone');
 eq(ids.indexOf('closeHome'), -1, 'the "Close LG Home" row is gone');
-eq(a.ROOT_OPTIONS.slice().sort(), ['appPreviews', 'lgLogo', 'replaceHome', 'takeover', 'tvInput'], 'root-only rows: the four system rows (the SAM method replaced the boot row) and the featured rows');
+eq(a.ROOT_OPTIONS.slice().sort(), ['appPreviews', 'lgLogo', 'remap', 'replaceHome', 'takeover', 'tvInput'], 'root-only rows: the four system rows (the SAM method replaced the boot row), the featured rows and reassigning remote buttons');
 eq(a.DEFAULT_CONFIG.showDebug, false, 'the Debug tab is off by default');
 const row = a.optionsFor('options', a.DEFAULT_CONFIG).pop();
 eq([row.id, row.label], ['showDebug', 'Show the Debug tab'], 'its switch is the last Options row');

@@ -11,6 +11,7 @@ import {CLOCK_COLOR_IDS, LABEL_COLOR_IDS, type ClockColor} from './clockcolor';
 import {TILE_SHAPE_IDS} from './tileshape';
 import {DEFAULT_CITY} from './cities';
 import {validCoords, type City, type TempUnit} from './weather';
+import {cleanRemap, DEFAULT_REMAP, type RemapConfig} from './remapcmd';
 
 export type WallpaperMode = 'gradient' | 'image' | 'folder';
 export type ClockFormat = 'tv' | '12h' | '24h';
@@ -113,6 +114,8 @@ export interface UserConfig {
 	homeApp: boolean;
 	/** the app that setting named before Hearth, put back when it is switched off ('' when not known) */
 	homeAppPrevious: string;
+	/** "Reassign remote buttons": what the remote's app buttons (and others) do instead (see remapcmd.ts) */
+	remap: RemapConfig;
 	theme: ThemeName;
 	/** a built-in background (see backgrounds.ts); 'theme' is the theme's own */
 	background: string;
@@ -208,6 +211,7 @@ export const DEFAULT_CONFIG: UserConfig = {
 	takeoverHome: false,
 	homeApp: false,
 	homeAppPrevious: '',
+	remap: DEFAULT_REMAP,
 	theme: 'black',
 	background: 'theme',
 	iconScale: RANGES.iconScale.def,
@@ -278,6 +282,7 @@ export function loadConfig (): UserConfig {
 			takeoverHome: parsed.takeoverHome === true,
 			homeApp: parsed.homeApp === true,
 			homeAppPrevious: typeof parsed.homeAppPrevious === 'string' && /^[A-Za-z0-9._-]+$/.test(parsed.homeAppPrevious) ? parsed.homeAppPrevious : '',
+			remap: cleanRemap(parsed.remap),
 			theme: THEME_IDS.indexOf(parsed.theme as ThemeName) !== -1 ? (parsed.theme as ThemeName) : 'black',
 			background: BACKGROUND_IDS.indexOf(parsed.background as string) !== -1 ? (parsed.background as string) : 'theme',
 			iconScale: ranged(parsed.iconScale, 'iconScale'),
