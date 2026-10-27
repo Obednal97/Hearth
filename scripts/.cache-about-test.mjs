@@ -483,7 +483,7 @@ var clip = (s, width = WIDTH) => s.length > width ? s.slice(0, width - 1) + "\u2
 var gb = (mb) => mb < 0 ? "?" : mb >= 1024 ? (mb / 1024).toFixed(1) + " GB" : mb + " MB";
 var yn = (v) => v ? "on" : "off";
 function debugPages(s) {
-  const c = s.config;
+  const c2 = s.config;
   const chrome = /Chrome\/([0-9.]+)/.exec(s.userAgent);
   const state2 = [
     s.rootDetail ? "Root detail: " + s.rootDetail : "",
@@ -491,11 +491,11 @@ function debugPages(s) {
     s.appList ? `App list: ${s.appList.count} apps from the ${s.appList.source === "homebrew" ? "live Homebrew list" : s.appList.source === "tv" ? "TV's remote-control service (experimental)" : "built-in list"} (${s.appList.ago})` : "App list: not read yet",
     `Weather: ${s.weather}`,
     "",
-    `Theme ${c.theme}, background ${c.background}, icons ${c.iconScale}%, ${c.rows} row${c.rows === 1 ? "" : "s"}, labels ${yn(c.showLabels)}, minimal ${yn(c.minimal)}`,
-    `Wallpaper ${c.wallpaper.mode}${c.wallpaper.path ? " " + c.wallpaper.path : ""}`,
-    `Close LG Home ${c.closeHome ? "on" : "switched off (it kept coming back)"}, helper ${yn(c.replaceHome)}, SAM method ${yn(c.takeoverHome)}`,
-    `Hidden apps ${c.hiddenIds ? c.hiddenIds.length : "?"}, sources shown ${c.sourceIds.length}, edited sources ${Object.keys(c.sourceEdits).length}`,
-    `LG Home tile ${yn(c.showLgHome)}, System Settings tile ${yn(c.showSystem)}`
+    `Theme ${c2.theme}, background ${c2.background}, icons ${c2.iconScale}%, ${c2.rows} row${c2.rows === 1 ? "" : "s"}, labels ${yn(c2.showLabels)}, minimal ${yn(c2.minimal)}`,
+    `Wallpaper ${c2.wallpaper.mode}${c2.wallpaper.path ? " " + c2.wallpaper.path : ""}`,
+    `Close LG Home ${c2.closeHome ? "on" : "switched off (it kept coming back)"}, helper ${yn(c2.replaceHome)}, SAM method ${yn(c2.takeoverHome)}`,
+    `Hidden apps ${c2.hiddenIds ? c2.hiddenIds.length : "?"}, sources shown ${c2.sourceIds.length}, edited sources ${Object.keys(c2.sourceEdits).length}`,
+    `LG Home tile ${yn(c2.showLgHome)}, System Settings tile ${yn(c2.showSystem)}`
   ].filter((l, i) => l !== "" || i === 5);
   const st = s.stats;
   state2.push("");
@@ -539,7 +539,7 @@ function reportText(pages, allEvents, beforeRestart) {
 }
 
 // src/lib/backgrounds.ts
-var plain = (c) => [c, c, c];
+var plain = (c2) => [c2, c2, c2];
 var BACKGROUNDS = [
   { id: "theme", label: "The theme's own", colors: ["", "", ""] },
   { id: "nature-show", label: "Slideshow: Nature photos", colors: ["#10161a", "#10161a", "#080b0d"] },
@@ -604,8 +604,8 @@ var CLOCK_COLORS = [
   { id: "ocean", label: "Gradient: Ocean (deep blue to aqua)", gradient: "linear-gradient(90deg, #1E4FD8 0%, #19C6D8 100%)", accent: "#1F8BDA", dark: true },
   { id: "dusk", label: "Gradient: Dusk (violet to coral)", gradient: "linear-gradient(90deg, #6A2FC9 0%, #F2634F 100%)", accent: "#A04A9A", dark: true }
 ];
-var CLOCK_COLOR_IDS = CLOCK_COLORS.map((c) => c.id);
-var LABEL_COLOR_IDS = ["theme"].concat(CLOCK_COLORS.filter((c) => !!c.color).map((c) => c.id));
+var CLOCK_COLOR_IDS = CLOCK_COLORS.map((c2) => c2.id);
+var LABEL_COLOR_IDS = ["theme"].concat(CLOCK_COLORS.filter((c2) => !!c2.color).map((c2) => c2.id));
 
 // src/lib/tileshape.ts
 var TILE_SHAPES = [
@@ -650,6 +650,10 @@ var STATUS_COMMAND = `if [ -f '${PID_FILE}' ] && kill -0 "$(cat '${PID_FILE}')" 
 var REMAP_DIR = "/media/developer/launcher-remap";
 var REMAP_LINK = "/var/lib/webosbrew/init.d/47-launcher-remap";
 var DEFAULT_REMAP = { on: false, keys: {} };
+var ALIASES = { Key_webOS_USP: "Key_webOS_RakutenTV" };
+function canonicalButton(name) {
+  return ALIASES[name] || name;
+}
 var NAME_RE = /^(Key_webOS_[A-Za-z0-9]{1,30}|#[0-9]{1,10})$/;
 var APP_ID_RE = /^[A-Za-z0-9._-]{1,120}$/;
 function cleanAction(value) {
@@ -667,7 +671,7 @@ function cleanRemap(value) {
   if (v.keys && typeof v.keys === "object") {
     Object.keys(v.keys).forEach((name) => {
       const action = cleanAction(v.keys[name]);
-      if (NAME_RE.test(name) && action) keys[name] = action;
+      if (NAME_RE.test(name) && action && !keys[canonicalButton(name)]) keys[canonicalButton(name)] = action;
     });
   }
   return { on: v.on === true, keys };
@@ -675,6 +679,133 @@ function cleanRemap(value) {
 var CHECK_COMMAND = withStatus(`if [ -f '${REMAP_DIR}/apply.sh' ]; then sh '${REMAP_DIR}/apply.sh' check; else echo files-missing; fi`);
 var VERSION_COMMAND2 = `cat '${REMAP_DIR}/version' 2>/dev/null; true`;
 var REMOVE_COMMAND2 = withStatus(`rm -f '${REMAP_LINK}'; if [ -f '${REMAP_DIR}/apply.sh' ]; then sh '${REMAP_DIR}/apply.sh' off; else echo removed; fi; rm -rf '${REMAP_DIR}'`);
+
+// src/lib/remotes.ts
+var c = (id, text, label, x, y, r, key) => ({ id, text, label, shape: "circle", x, y, w: r * 2, h: r * 2, key });
+var pill = (id, text, label, x, y, w, h, key) => ({ id, text, label, shape: "pill", x, y, w, h, key });
+function numberPad(xs, ys, r, bottom) {
+  const out = [];
+  for (let row = 0; row < 3; row++) {
+    for (let col = 0; col < 3; col++) {
+      const n = String(row * 3 + col + 1);
+      out.push(c("n" + n, n, n, xs[col], ys[row], r));
+    }
+  }
+  return out.concat(bottom);
+}
+var MAGIC_BODY = { x: 60, y: 20, w: 200, h: 880, r: 90 };
+function magicTop() {
+  return [
+    c("power", "POWER", "Power", 110, 82, 17),
+    c("input", "INPUT", "Input", 210, 82, 17, "Key_webOS_InputSource"),
+    ...numberPad([110, 160, 210], [145, 192, 239], 18, [
+      c("list", "LIST", "List", 110, 286, 18),
+      c("n0", "0", "0", 160, 286, 18),
+      c("more", "\u2022\u2022\u2022", "\u2022\u2022\u2022 (more actions)", 210, 286, 18, "Key_webOS_ScreenRemote")
+    ]),
+    { id: "vol", text: "VOL", label: "Volume", shape: "rocker", x: 100, y: 375, w: 40, h: 100 },
+    { id: "ch", text: "CH", label: "Channels", shape: "rocker", x: 220, y: 375, w: 40, h: 100 },
+    c("mute", "MUTE", "Mute", 160, 345, 16),
+    c("mic", "MIC", "Microphone", 160, 405, 16, "Key_webOS_Voice"),
+    { id: "ok", text: "OK", label: "OK and the arrows", shape: "ring", x: 160, y: 520, w: 130, h: 130 },
+    c("back", "BACK", "Back", 105, 628, 17),
+    c("home", "HOME", "Home", 160, 628, 17),
+    c("settings", "SET", "Settings", 215, 628, 17, "Key_webOS_Settings")
+  ];
+}
+var REMOTES = [
+  {
+    model: "magic-2019",
+    name: "Magic Remote (2019, MR19)",
+    body: MAGIC_BODY,
+    width: 560,
+    height: 920,
+    buttons: [
+      ...magicTop(),
+      pill("netflix", "NETFLIX", "Netflix", 160, 700, 120, 32, "Key_webOS_Netflix"),
+      pill("prime", "prime video", "Prime Video", 160, 748, 120, 32, "Key_webOS_Amazon"),
+      pill("movies", "MOVIES", "Movies (Rakuten TV)", 160, 796, 120, 32, "Key_webOS_RakutenTV")
+    ]
+  },
+  {
+    model: "magic-2020",
+    name: "Magic Remote (2020 and later)",
+    body: MAGIC_BODY,
+    width: 560,
+    height: 920,
+    buttons: [
+      ...magicTop(),
+      pill("netflix", "NETFLIX", "Netflix", 125, 700, 64, 32, "Key_webOS_Netflix"),
+      pill("prime", "prime", "Prime Video", 195, 700, 64, 32, "Key_webOS_Amazon"),
+      pill("disney", "Disney+", "Disney+", 125, 748, 64, 32, "Key_webOS_Disneyplus"),
+      pill("rakuten", "Rakuten", "Rakuten TV", 195, 748, 64, 32, "Key_webOS_RakutenTV"),
+      pill("channels", "LG CHANNELS", "LG Channels", 160, 796, 144, 32, "Key_webOS_LGChannels")
+    ]
+  },
+  {
+    model: "ir",
+    name: "Standard remote (IR)",
+    body: { x: 75, y: 20, w: 170, h: 730, r: 34 },
+    width: 560,
+    height: 920,
+    buttons: [
+      c("power", "POWER", "Power", 110, 65, 16),
+      c("input", "INPUT", "Input", 210, 65, 16, "Key_webOS_InputSource"),
+      ...numberPad([115, 160, 205], [115, 152, 189], 15, [
+        c("list", "LIST", "List", 115, 226, 15),
+        c("n0", "0", "0", 160, 226, 15),
+        c("qview", "Q.V", "Q.View", 205, 226, 15)
+      ]),
+      { id: "vol", text: "VOL", label: "Volume", shape: "rocker", x: 108, y: 300, w: 34, h: 84 },
+      { id: "ch", text: "CH", label: "Channels", shape: "rocker", x: 212, y: 300, w: 34, h: 84 },
+      c("mute", "MUTE", "Mute", 160, 272, 13),
+      c("guide", "GUIDE", "Guide", 160, 330, 15, "Key_webOS_TVGuide"),
+      c("home", "HOME", "Home", 110, 378, 16),
+      c("settings", "SET", "Settings", 210, 378, 16, "Key_webOS_Settings"),
+      { id: "ok", text: "OK", label: "OK and the arrows", shape: "ring", x: 160, y: 455, w: 112, h: 112 },
+      c("back", "BACK", "Back", 110, 535, 16),
+      c("livetv", "LIVE", "Live TV", 160, 535, 16, "Key_webOS_InputTV"),
+      c("exit", "EXIT", "Exit", 210, 535, 16),
+      pill("netflix", "NETFLIX", "Netflix", 125, 585, 64, 26, "Key_webOS_Netflix"),
+      pill("prime", "prime", "Prime Video", 195, 585, 64, 26, "Key_webOS_Amazon"),
+      { id: "red", text: "", label: "Red", shape: "key", x: 106, y: 630, w: 30, h: 16, key: "Key_webOS_Red", color: "#e5484d" },
+      { id: "green", text: "", label: "Green", shape: "key", x: 142, y: 630, w: 30, h: 16, key: "Key_webOS_Green", color: "#30a46c" },
+      { id: "yellow", text: "", label: "Yellow", shape: "key", x: 178, y: 630, w: 30, h: 16, key: "Key_webOS_Yellow", color: "#f5d90a" },
+      { id: "blue", text: "", label: "Blue", shape: "key", x: 214, y: 630, w: 30, h: 16, key: "Key_webOS_Blue", color: "#3e63dd" },
+      { id: "text", text: "TEXT", label: "Text", shape: "key", x: 115, y: 672, w: 38, h: 18 },
+      { id: "topt", text: "T.OPT", label: "Text options", shape: "key", x: 160, y: 672, w: 38, h: 18 },
+      { id: "sub", text: "SUB", label: "Subtitles", shape: "key", x: 205, y: 672, w: 38, h: 18 },
+      { id: "rew", text: "\u25C0\u25C0", label: "Rewind", shape: "key", x: 115, y: 708, w: 38, h: 18 },
+      { id: "play", text: "\u25B6", label: "Play", shape: "key", x: 160, y: 708, w: 38, h: 18 },
+      { id: "ff", text: "\u25B6\u25B6", label: "Fast forward", shape: "key", x: 205, y: 708, w: 38, h: 18 }
+    ]
+  }
+];
+var LINUX_CODES = {
+  home: 773,
+  back: 412,
+  mute: 113,
+  input: 241,
+  settings: 139,
+  mic: 428,
+  list: 787,
+  more: 994,
+  guide: 362,
+  netflix: 1037,
+  prime: 1038,
+  disney: 1042,
+  rakuten: 1044,
+  movies: 1083,
+  red: 398,
+  green: 399,
+  yellow: 400,
+  blue: 401
+};
+REMOTES.forEach((r) => r.buttons.forEach((b) => {
+  if (LINUX_CODES[b.id] !== void 0) b.linux = LINUX_CODES[b.id];
+}));
+var INPUT_HOOK_FILE = "/home/root/.config/lginputhook/keybinds.json";
+var INPUT_HOOK_COMMAND = `cat '${INPUT_HOOK_FILE}' 2>/dev/null; true`;
 
 // src/lib/storage.ts
 var RANGES = {
@@ -751,6 +882,7 @@ var DEFAULT_CONFIG = {
   homeApp: false,
   homeAppPrevious: "",
   remap: DEFAULT_REMAP,
+  remoteModel: "",
   theme: "black",
   background: "theme",
   iconScale: RANGES.iconScale.def,
@@ -763,6 +895,7 @@ var DEFAULT_CONFIG = {
   recentsW: RANGES.recentsW.def,
   recentsH: RANGES.recentsH.def,
   quietSec: RANGES.quietSec.def,
+  homeFocus: "first",
   oledShift: true,
   labelColor: "theme",
   showLabels: true,
@@ -797,7 +930,7 @@ function loadConfig() {
     if (!raw) return { ...DEFAULT_CONFIG };
     const parsed = JSON.parse(raw);
     const w = parsed.wallpaper || {};
-    const c = parsed.clock || {};
+    const c2 = parsed.clock || {};
     const wx = parsed.weather || DEFAULT_WEATHER;
     const wc = wx.city;
     const city = wc && typeof wc.name === "string" && wc.name && validCoords(wc.lat, wc.lon) ? { name: wc.name.slice(0, 60), lat: wc.lat, lon: wc.lon, detail: typeof wc.detail === "string" ? wc.detail.slice(0, 80) : void 0 } : null;
@@ -818,6 +951,7 @@ function loadConfig() {
       homeApp: parsed.homeApp === true,
       homeAppPrevious: typeof parsed.homeAppPrevious === "string" && /^[A-Za-z0-9._-]+$/.test(parsed.homeAppPrevious) ? parsed.homeAppPrevious : "",
       remap: cleanRemap(parsed.remap),
+      remoteModel: parsed.remoteModel === "list" || REMOTES.some((r) => r.model === parsed.remoteModel) ? parsed.remoteModel : "",
       theme: THEME_IDS.indexOf(parsed.theme) !== -1 ? parsed.theme : "black",
       background: BACKGROUND_IDS.indexOf(parsed.background) !== -1 ? parsed.background : "theme",
       iconScale: ranged(parsed.iconScale, "iconScale"),
@@ -830,6 +964,7 @@ function loadConfig() {
       recentsW: ranged(parsed.recentsW, "recentsW"),
       recentsH: ranged(parsed.recentsH, "recentsH"),
       quietSec: ranged(parsed.quietSec, "quietSec"),
+      homeFocus: parsed.homeFocus === "last" ? "last" : "first",
       oledShift: parsed.oledShift !== false,
       labelColor: LABEL_COLOR_IDS.indexOf(parsed.labelColor) !== -1 ? parsed.labelColor : "theme",
       showLabels: parsed.showLabels !== false,
@@ -846,17 +981,17 @@ function loadConfig() {
       bottomMargin: ranged(parsed.bottomMargin, "bottomMargin"),
       clockFormat: parsed.clockFormat === "tv" || parsed.clockFormat === "24h" || parsed.clockFormat === "12h" ? parsed.clockFormat : DEFAULT_CONFIG.clockFormat,
       clock: {
-        size: ranged(c.size, "clockSize"),
-        weight: c.weight === 300 || c.weight === 400 || c.weight === 500 || c.weight === 600 || c.weight === 700 ? c.weight : 200,
-        font: CLOCK_FONT_IDS.indexOf(c.font) !== -1 ? c.font : "inter",
-        top: ranged(c.top, "clockTop"),
-        left: ranged(c.left, "clockLeft"),
-        color: CLOCK_COLOR_IDS.indexOf(c.color) !== -1 ? c.color : "white",
-        shadow: c.shadow !== false,
-        shadowStrength: ranged(c.shadowStrength, "clockShadow"),
-        opacity: ranged(c.opacity, "clockOpacity"),
-        showDate: c.showDate !== false,
-        showPeriod: c.showPeriod !== false
+        size: ranged(c2.size, "clockSize"),
+        weight: c2.weight === 300 || c2.weight === 400 || c2.weight === 500 || c2.weight === 600 || c2.weight === 700 ? c2.weight : 200,
+        font: CLOCK_FONT_IDS.indexOf(c2.font) !== -1 ? c2.font : "inter",
+        top: ranged(c2.top, "clockTop"),
+        left: ranged(c2.left, "clockLeft"),
+        color: CLOCK_COLOR_IDS.indexOf(c2.color) !== -1 ? c2.color : "white",
+        shadow: c2.shadow !== false,
+        shadowStrength: ranged(c2.shadowStrength, "clockShadow"),
+        opacity: ranged(c2.opacity, "clockOpacity"),
+        showDate: c2.showDate !== false,
+        showPeriod: c2.showPeriod !== false
       },
       weather: {
         on: wx.on === true && city !== null,
