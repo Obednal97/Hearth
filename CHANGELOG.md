@@ -18,6 +18,7 @@
   last opened from Hearth (its home row or the Recent apps panel). If that tile is no longer on the row (uninstalled or hidden), the first app is used.
   The tile is noted when it is opened and kept in a small entry of its own, so it is still known if the TV starts Hearth afresh; nothing runs in the
   background. Idea and first version by iulyax27 (pull request #10); rewritten for the current code.
+- **Reassign remote buttons, with a picture of your remote:** choose your remote (the TV's log suggests the Magic Remote model), then press a button on it, or move to it on the drawing, to choose its new job; what each button does is written beside it. Buttons LG Input Hook also handles are marked (idea from iulyax27). *Other, or not listed* keeps the plain list.
 
 ## 1.2.0
 

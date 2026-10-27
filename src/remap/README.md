@@ -41,6 +41,22 @@ Movies* row and stores it as `Key_webOS_RakutenTV`; the filter treats `Key_webOS
 `keyfilter.js` and `remapcmd.ts`). "Press a button" always records what the remote really sends, so it is the surest
 way to pick any other button.
 
+## The picture of the remote
+
+The drawings (`src/lib/remotes.ts`, drawn by `src/components/RemoteArt.tsx`) are simple line drawings made for Hearth,
+not copies of LG's artwork; where the buttons sit is approximate. Each button that can be reassigned carries the TV's
+key name, so a press on the real remote finds it on the drawing. While the drawing is shown, Hearth keeps "Press a button"
+on (renewed every 50 s while the page is open), so pressing a button picks it.
+
+**Which remote:** the TV's own log names the Magic Remote model on presses of its Home, Settings and partner buttons
+(`lginput2 … NL_BUTTON_CLICK {"remote_type":"LGE MR19",…}`). Hearth reads the last one with one `grep` when the page
+opens and offers that remote first. The standard (IR) remote does not say its model, so it is chosen by hand.
+
+**LG Input Hook:** a separate Homebrew app that remaps keys inside `lginput2`, before any key filter. If it is installed,
+Hearth reads its bindings (`/home/root/.config/lginputhook/keybinds.json`, keyed by Linux key code) and marks those
+buttons ("Input Hook" beside the drawing, a note in the list): Input Hook acts first, so its binding decides. Hearth
+never writes that file. (Idea from iulyax27; Hearth's code is its own.)
+
 ## Known limits
 
 - **Power on with an app button.** With the TV off, LG's app buttons can switch it on straight into their app. That

@@ -33,7 +33,8 @@ import {hidePointerOnForeground} from './lib/pointer';
 import {startLogFile, writeReport, previousRunLines} from './lib/logfile';
 import {readStats, type SystemStats, getLogo, setLogo, closeLgHome} from './lib/system';
 import {applyHomeHook, getHookStatus, hookMessage, installHomeHook, logLine, markAliveSoon, reapplyHomeHook, removeHomeHook, stockHome} from './lib/homehook';
-import {capturedButton, checkRemap, installRemap, remapMessage, removeRemap, saveRemap, setCapture} from './lib/remap';
+import {capturedButton, checkRemap, detectRemote, installRemap, readInputHook, remapMessage, removeRemap, saveRemap, setCapture} from './lib/remap';
+import type {RemoteModel} from './lib/remotes';
 import {buttonLabel, setButton, type RemapAction, type RemapConfig} from './lib/remapcmd';
 import {getTakeoverStatus, installTakeover, reapplyTakeover, removeTakeover, stockTakeover, takeoverMessage} from './lib/takeover';
 import {homeAppMessage, readHomeApp, restoreHomeApp, setHearthAsHome} from './lib/homeapp';
@@ -108,6 +109,8 @@ export function App () {
 	const [remapBusy, setRemapBusy] = useState(false);                                       // the button map is being put on the TV
 	const [captured, setCaptured] = useState<{name: string; seq: number} | null>(null);     // "Press a button": the button the TV reported
 	const captureOn = useRef(false);
+	const [remoteSeen, setRemoteSeen] = useState<RemoteModel | null>(null);       // the remote the TV's log names last
+	const [hookCodes, setHookCodes] = useState<number[]>([]);                    // buttons LG Input Hook has bindings for
 	const remapChecked = useRef(0);
 	const tvFormat = useTimeFormat();
 	const [plexServer, setPlexServer] = useState<string | null>(plexServerName);
@@ -906,6 +909,15 @@ export function App () {
 		});
 	}, [config, showToast]);
 
+	// Opening the screen: which remote the TV heard last, and which buttons Input Hook acts on (two tiny reads).
+	useEffect(() => {
+		if (screen !== 'remote') return undefined;
+		let live = true;
+		detectRemote().then((m) => { if (live) setRemoteSeen(m); });
+		readInputHook().then((codes) => { if (live) setHookCodes(codes); });
+		return () => { live = false; };
+	}, [screen === 'remote']);                                               // eslint-disable-line react-hooks/exhaustive-deps
+
 	// Leaving the screen while it waits for a press: tell the filter to stop waiting.
 	useEffect(() => {
 		if (screen !== 'remote' && captureOn.current) { captureOn.current = false; setCapture(false); }
@@ -975,7 +987,7 @@ export function App () {
 					onClose={() => setScreen('source')}
 				/>
 			)}
-			{screen === 'remote' && <RemoteButtons remap={config.remap} targets={remapTargets} captured={captured} busy={remapBusy} onSwitch={onRemapSwitch} onAssign={onRemapAssign} onCapture={onRemapCapture} onClose={() => setScreen('settings')} />}
+			{screen === 'remote' && <RemoteButtons model={config.remoteModel} detected={remoteSeen} inputHook={hookCodes} onModel={(remoteModel) => updateConfig({...config, remoteModel})} remap={config.remap} targets={remapTargets} captured={captured} busy={remapBusy} onSwitch={onRemapSwitch} onAssign={onRemapAssign} onCapture={onRemapCapture} onClose={() => setScreen('settings')} />}
 			{screen === 'picker' && <Picker onChoose={onChooseWallpaper} onClose={() => setScreen('settings')} />}
 			{screen === 'plexlink' && <PlexLink onDone={onPlexSignedIn} onClose={() => setScreen('settings')} />}
 			{WEATHER_ENABLED && screen === 'cities' && <CityPicker allowShell={isWebOS()} onChoose={onChooseCity} onClose={() => setScreen('settings')} />}

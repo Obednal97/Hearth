@@ -13,7 +13,21 @@ import {
 	VERSION_COMMAND, type RemapConfig, type RemapResult
 } from './remapcmd';
 
+import {INPUT_HOOK_COMMAND, inputHookCodes, REMOTE_LOG_COMMAND, remoteFromLog, type RemoteModel} from './remotes';
+
 export type {RemapResult};
+
+/** The remote the TV's own log names last (Magic Remotes only), for "Which remote do you have?". */
+export function detectRemote (): Promise<RemoteModel | null> {
+	if (!isWebOS()) return Promise.resolve(null);
+	return exec(REMOTE_LOG_COMMAND, 6000).then(remoteFromLog, () => null);
+}
+
+/** The buttons LG Input Hook has bindings for (Linux key codes), read from its own file; Hearth never changes it. */
+export function readInputHook (): Promise<number[]> {
+	if (!isWebOS()) return Promise.resolve([]);
+	return exec(INPUT_HOOK_COMMAND, 6000).then(inputHookCodes, () => []);
+}
 
 const lf = (text: string): string => text.replace(/\r\n?/g, '\n');     // plain line ends even from a Windows checkout
 const FILES = {keyfilterJs: lf(keyfilterJs), applySh: lf(applySh)};
