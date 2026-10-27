@@ -12,6 +12,7 @@ import {TILE_SHAPE_IDS} from './tileshape';
 import {DEFAULT_CITY} from './cities';
 import {validCoords, type City, type TempUnit} from './weather';
 import {cleanRemap, DEFAULT_REMAP, type RemapConfig} from './remapcmd';
+import {REMOTES, type RemoteModel} from './remotes';
 
 export type WallpaperMode = 'gradient' | 'image' | 'folder';
 export type ClockFormat = 'tv' | '12h' | '24h';
@@ -112,6 +113,8 @@ export interface UserConfig {
 	takeoverHome: boolean;
 	/** "Reassign remote buttons": what the remote's app buttons (and others) do instead (see remapcmd.ts) */
 	remap: RemapConfig;
+	/** which remote "Reassign remote buttons" draws ('list': the plain list; '': not chosen yet, it asks) */
+	remoteModel: RemoteModel | 'list' | '';
 	theme: ThemeName;
 	/** a built-in background (see backgrounds.ts); 'theme' is the theme's own */
 	background: string;
@@ -200,6 +203,7 @@ export const DEFAULT_CONFIG: UserConfig = {
 	replaceHome: false,
 	takeoverHome: false,
 	remap: DEFAULT_REMAP,
+	remoteModel: '',
 	theme: 'black',
 	background: 'theme',
 	iconScale: RANGES.iconScale.def,
@@ -266,6 +270,7 @@ export function loadConfig (): UserConfig {
 			replaceHome: parsed.replaceHome === true,
 			takeoverHome: parsed.takeoverHome === true,
 			remap: cleanRemap(parsed.remap),
+			remoteModel: parsed.remoteModel === 'list' || REMOTES.some((r) => r.model === parsed.remoteModel) ? (parsed.remoteModel as RemoteModel | 'list') : '',
 			theme: THEME_IDS.indexOf(parsed.theme as ThemeName) !== -1 ? (parsed.theme as ThemeName) : 'black',
 			background: BACKGROUND_IDS.indexOf(parsed.background as string) !== -1 ? (parsed.background as string) : 'theme',
 			iconScale: ranged(parsed.iconScale, 'iconScale'),
