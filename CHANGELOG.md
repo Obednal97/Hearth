@@ -5,6 +5,14 @@
 - **Input status** (Settings → Look, on by default): inputs with nothing plugged in are greyed out with *Not connected* under the name, and on rooted TVs the name a connected device announces over HDMI-CEC (e.g. *Fire TV Stick*) is shown under its input. Inputs on the home row are re-read every 15 s while Hearth is in front, so a device switched on shows up.
 - **Featured in your apps** (Settings → Options, off by default, rooted TVs): the previews LG Home shows for Prime Video, YouTube, iPlayer and other installed apps, one app at a time: press Up above the apps (and above Continue Watching). The clock steps aside while a row is shown. OK opens the item in its app. Read-only from the TV's own preview store, at most every 10 minutes.
 - **Continue Watching from Plex** (Settings → Options, off by default): a row of wide cards above the apps with what you are part-way through on your Plex server, with progress and time left. Sign in with a code at plex.tv/link (nothing to type on the TV); the token is kept apart from the settings and never shown in the Debug tab. OK plays the item, holding OK opens its page. It opens in LG's Plex app at that title. The list is drawn from a saved copy at once and refreshed a few seconds after Hearth comes to the front, at most once a minute. Up from the app row reaches it.
+- **Set Hearth as the TV's Home app (webOS 4.x)** (Settings → Options): writes Hearth into the TV's own Home app setting (`defaultApps.home`), so the Home
+  button opens Hearth directly, with nothing running in the background. On webOS 4.x Home opens LG's full-screen overlay (`com.webos.app.fullhome`), which
+  never becomes the app in front, so the helper script and the SAM method never saw it. The value found is kept and put back when the method is turned
+  off; on rooted TVs a start-up check (`46-launcher-homeapp`) also puts it back if Hearth is uninstalled while it is on. Uses a plain Luna call where the TV
+  allows it, else the root shell. Greyed out on TVs without the setting; never on together with the other two methods. Tested on webOS 4.5. Undo steps:
+  `src/homeapp/README.md`.
+- The helper script (`HOOK_VERSION` 10) and the SAM method's watcher (`TAKEOVER_VERSION` 9) also open Hearth when a TV reports `com.webos.app.fullhome` in
+  front, and both diagnostics print the TV's Home app setting.
 
 ## 1.2.0
 
