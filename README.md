@@ -48,6 +48,7 @@ It is a normal webOS app (app ID `tld.my.customlauncher`). On a rooted TV it can
 |---|---|
 | Reference device (everything tested) | Firmware **04.60.90**, **webOS 7.6.0**, rooted, Homebrew Channel 0.7.3 |
 | Also reported by users | LG firmware **03.01.16** (reported as webOS 8.0.0), webOS 6.x (a Settings display bug found there was fixed in 1.1.0) and the webOS 4.x TV it was first built on |
+| webOS 4.5 (LG 65UM7100PLA, 2019) | Firmware **05.40.97**, **webOS 4.10.2** (webOS 4.5), rooted, Homebrew Channel 0.7.3. Tested and in daily use by a contributor: the launcher itself, input status ([#16](https://github.com/rudra-avatar/Hearth/pull/16)), Continue Watching from Plex ([#17](https://github.com/rudra-avatar/Hearth/pull/17)) and *Set Hearth as the TV's Home app* all work on this TV |
 | webOS 11 (LG C4 and others) | **The permission fix works**, reported by several users (see [issue #5](https://github.com/rudra-avatar/Hearth/issues/5) and *webOS 11* below); the maintainer has no webOS 11 TV |
 | Newer versions | **Should work.** Hearth is compiled for old web views (Chrome 53) and uses only standard web features and TV services that LG keeps across versions. Please report anything odd |
 
