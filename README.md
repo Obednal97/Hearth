@@ -181,7 +181,7 @@ a few seconds after Hearth comes to the front, at most once a minute. OK opens t
 
 ## Reassign remote buttons (rooted TVs)
 
-**Settings → Options → Reassign remote buttons** first asks which remote you have (Magic Remote 2019, Magic Remote 2020 and later, or the standard remote; the one the TV heard last is offered first) and shows a simple drawing of it.
+**Settings → Options → Reassign remote buttons** first asks which Magic Remote you have (2019–2020 with Movies, 2021–2024, or the 2025 AI Magic Remote; the one the TV heard last is offered first; for the standard IR remote or any other, *Other, or not listed* keeps the list) and shows a simple drawing of it.
 The buttons you can reassign are highlighted, with what each does now written beside it. **Press one on your real remote** and its choices open; or move to it with the arrows and press OK.
 *Other, or not listed* (and *Show as a list*) shows the plain list instead: the remote's partner buttons (Netflix, Prime Video, Disney+, Rakuten TV / Movies, LG Channels) and what each does.
 OK on a button chooses its new job: **any app**, **an input** (HDMI 1, Live TV…), **Hearth**, **mute or unmute**, **nothing**, or **the TV's own action** again.

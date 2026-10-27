@@ -44,13 +44,18 @@ way to pick any other button.
 ## The picture of the remote
 
 The drawings (`src/lib/remotes.ts`, drawn by `src/components/RemoteArt.tsx`) are simple line drawings made for Hearth,
-not copies of LG's artwork; where the buttons sit is approximate. Each button that can be reassigned carries the TV's
+not copies of LG's artwork: the 2019–2020 Magic Remote (with Movies), the 2021–2024 one and the 2025 AI Magic Remote. Each button that can be reassigned carries the TV's
 key name, so a press on the real remote finds it on the drawing. While the drawing is shown, Hearth keeps "Press a button"
 on (renewed every 50 s while the page is open), so pressing a button picks it.
 
 **Which remote:** the TV's own log names the Magic Remote model on presses of its Home, Settings and partner buttons
 (`lginput2 … NL_BUTTON_CLICK {"remote_type":"LGE MR19",…}`). Hearth reads the last one with one `grep` when the page
-opens and offers that remote first. The standard (IR) remote does not say its model, so it is chosen by hand.
+opens and offers that remote first (MR19/MR20: 2019–2020, MR21–MR24: 2021–2024, MR25 on: 2025). There is no drawing of
+the standard IR remote: *Other, or not listed* keeps the plain list, and "Press a button" works with any remote.
+
+On the drawings, Play and Pause stay as they are (apps use them for playback), and so do set-top box power and the
+buttons this TV's firmware has no name for (Alexa; the 2025 remote's AI, Home Hub and Quick Help): they are drawn
+dimmed. Button positions follow photos of the real remotes, redrawn as simple shapes.
 
 **LG Input Hook:** a separate Homebrew app that remaps keys inside `lginput2`, before any key filter. If it is installed,
 Hearth reads its bindings (`/home/root/.config/lginputhook/keybinds.json`, keyed by Linux key code) and marks those

@@ -11,7 +11,7 @@ let fail = 0;
 const eq = (a, b, msg) => { const ok = a === b; if (!ok) fail++; console.log(ok ? 'ok  ' : 'FAIL', msg, ok ? '' : `(${a} != ${b})`); };
 
 // ----- the drawings -----
-const PROTECTED = ['power', 'vol', 'ch', 'mute', 'ok', 'back', 'home', 'exit', 'n0', 'n1', 'n5', 'n9'];
+const PROTECTED = ['power', 'stbpower', 'vol', 'ch', 'volup', 'voldown', 'chup', 'chdown', 'volch', 'mute', 'ok', 'back', 'home', 'play', 'pause', 'n0', 'n1', 'n5', 'n9'];
 const known = r.BUTTONS.map((b) => b.name);
 m.REMOTES.forEach((layout) => {
 	const ids = layout.buttons.map((b) => b.id);
@@ -38,18 +38,24 @@ m.REMOTES.forEach((layout) => {
 	eq(all.filter((x) => !seen[x.id]).map((x) => x.id).join(), '', `${layout.model}: the arrows reach every highlighted button`);
 });
 const mr19 = m.remoteLayout('magic-2019');
-eq(mr19.buttons.filter((b) => b.key).map((b) => b.id).join(), 'input,more,mic,settings,netflix,prime,movies', 'the 2019 Magic Remote: its partner buttons are Netflix, Prime Video and Movies');
+eq(m.REMOTES.map((x) => x.model).join(), 'magic-2019,magic-2021,magic-2025', 'three Magic Remotes (the IR remote uses the list)');
+eq(mr19.buttons.filter((b) => b.key).map((b) => b.id).join(), 'more,mic,settings,guide,netflix,input,prime,red,green,yellow,blue,movies', 'the 2019-2020 Magic Remote: what can be reassigned');
+eq(mr19.buttons.filter((b) => ['play', 'pause', 'stbpower'].indexOf(b.id) !== -1 && !b.key).length, 3, 'Play, Pause (apps use them for playback) and set-top box power stay as they are');
 eq(m.buttonForKey(mr19, 'Key_webOS_RakutenTV').id, 'movies', 'its Movies button is the Rakuten TV / Movies button (sent as Key_webOS_USP)');
-eq(m.buttonForKey(mr19, 'Key_webOS_Red'), null, 'a button the remote does not have is not drawn');
-eq(m.remoteLayout('ir').buttons.filter((b) => b.color).length, 4, 'the standard remote has the four colour keys');
+eq(m.buttonForKey(mr19, 'Key_webOS_Disneyplus'), null, 'a button the remote does not have is not drawn');
+eq(mr19.buttons.filter((b) => b.color).length + m.remoteLayout('magic-2021').buttons.filter((b) => b.color).length, 8, 'the 2019 and 2021 remotes have the four colour keys');
+eq(m.remoteLayout('magic-2025').buttons.filter((b) => /^n[0-9]$/.test(b.id)).length, 0, 'the 2025 remote has no number keys');
+eq(['alexa', 'ai', 'homehub', 'help'].map((id) => m.remoteLayout('magic-2025').buttons.filter((b) => b.id === id)[0]).filter((b) => !b || b.key).length, 0, 'Alexa, AI, Home Hub and Quick Help are drawn but not reassignable (the TV has no name for them)');
 
 // ----- moving with the arrows -----
 const at = (id) => mr19.buttons.filter((b) => b.id === id)[0];
-eq((m.nextButton(mr19, at('netflix'), 'down') || {}).id, 'prime', '↓ from Netflix: Prime Video');
-eq((m.nextButton(mr19, at('netflix'), 'up') || {}).id, 'settings', '↑ from Netflix: the nearest button above (Settings)');
+eq((m.nextButton(mr19, at('netflix'), 'down') || {}).id, 'red', '↓ from Netflix: the red key below it');
+eq((m.nextButton(mr19, at('netflix'), 'right') || {}).id, 'input', '→ from Netflix: Input');
+eq((m.nextButton(mr19, at('input'), 'right') || {}).id, 'prime', '→ from Input: Prime Video');
+eq((m.nextButton(mr19, at('movies'), 'up') || {}).id, 'red', '↑ from Movies: the red key');
 eq(m.nextButton(mr19, at('movies'), 'down'), null, '↓ from the last button: nothing (focus stays)');
-eq(m.nextButton(mr19, at('input'), 'right'), null, '→ from the right edge: nothing (the screen moves to the side panel)');
-eq((m.nextButton(mr19, at('more'), 'down') || {}).id, 'mic', '↓ from ••• goes to the microphone, not far down the remote');
+eq(m.nextButton(mr19, at('more'), 'right'), null, '→ from the right edge: nothing (the screen moves to the side panel)');
+eq((m.nextButton(mr19, at('more'), 'down') || {}).id, 'settings', '↓ from ••• goes to Settings straight below');
 
 // ----- labels beside the drawing -----
 eq(m.placeLabels([100, 300], 30, 0, 900).join(), '100,300', 'labels far apart stay level with their buttons');
@@ -61,7 +67,9 @@ eq(m.placeLabels([], 34, 0, 900).length, 0, 'no labels');
 // ----- which remote -----
 const log = (t) => `x NL_BUTTON_CLICK {"remote_type":"${t}","button_type":"KEY_HOME"}`;
 eq(m.remoteFromLog(log('LGE MR19')), 'magic-2019', 'MR19 in the TV log: the 2019 Magic Remote');
-eq(m.remoteFromLog(log('LGE MR19') + '\n' + log('LGE MR21')), 'magic-2020', 'the last remote named counts (MR21: 2020 and later)');
+eq(m.remoteFromLog(log('LGE MR20')), 'magic-2019', 'MR20: the same 2019-2020 remote');
+eq(m.remoteFromLog(log('LGE MR19') + '\n' + log('LGE MR21')), 'magic-2021', 'the last remote named counts (MR21: 2021-2024)');
+eq(m.remoteFromLog(log('LGE MR25')), 'magic-2025', 'MR25: the 2025 AI Magic Remote');
 eq(m.remoteFromLog(log('LGE MR18')), null, 'older Magic Remotes: ask');
 eq(m.remoteFromLog(log('LGE RCU')), null, 'a remote that does not say its model: ask');
 eq(m.remoteFromLog(''), null, 'nothing in the log: ask');
@@ -71,7 +79,7 @@ eq(m.inputHookCodes('{"773":{"action":"launch","id":"tld.my.customlauncher"},"10
 eq(m.inputHookCodes('{}').length + m.inputHookCodes('').length + m.inputHookCodes('not json').length + m.inputHookCodes('[1,2]').length, 0, 'no file, an empty or broken file: no bindings');
 eq(m.inputHookCodes('{"abc":{},"398":null,"399":{"action":"replace","id":"400"}}').join(), '399', 'odd entries are left out');
 eq(m.boundByInputHook(mr19, [773, 1037, 1083]).join(), 'home,netflix,movies', 'the drawing marks the buttons Input Hook also acts on');
-eq(m.boundByInputHook(m.remoteLayout('ir'), [398]).join(), 'red', 'colour keys too');
+eq(m.boundByInputHook(m.remoteLayout('magic-2021'), [398]).join(), 'red', 'colour keys too');
 eq(m.INPUT_HOOK_COMMAND.indexOf('cat ') === 0 && m.INPUT_HOOK_COMMAND.replace('2>/dev/null', '').indexOf('>') === -1, true, "Hearth only reads Input Hook's file");
 
 process.exit(fail ? 1 : 0);
