@@ -13,7 +13,7 @@
   `src/homeapp/README.md`.
 - The helper script (`HOOK_VERSION` 10) and the SAM method's watcher (`TAKEOVER_VERSION` 9) also open Hearth when a TV reports `com.webos.app.fullhome` in
   front, and both diagnostics print the TV's Home app setting.
-- **Reassign remote buttons** (Settings → Options, rooted TVs): give the remote's Netflix, Prime Video and other partner buttons (or others, by pressing them) a new job: any app or input, Hearth, mute, or nothing. Hearth adds a key filter to the front of the TV's own key-filter chain, in the TV's memory only, and sets it again at each start (`/var/lib/webosbrew/init.d/47-launcher-remap`). Standard remote and Magic Remote alike; Off gives every button back at once. See `src/remap/README.md`.
+- **Reassign remote buttons** (Settings → Options, rooted TVs): give the remote's Netflix, Prime Video and other partner buttons (or others, by pressing them) a new job: any app or input, Hearth, mute, or nothing. Hearth adds a key filter to the front of the TV's own key-filter chain, in the TV's memory only, and sets it again at each start (`/var/lib/webosbrew/init.d/47-launcher-remap`). Standard remote and Magic Remote alike; Off gives every button back at once. The Rakuten TV / Movies button is one row for both of its key codes (`Key_webOS_USP` on 2019 remotes, `Key_webOS_RakutenTV` on later ones). See `src/remap/README.md`.
 
 ## 1.2.0
 

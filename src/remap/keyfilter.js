@@ -27,6 +27,10 @@ var KNOWN = ['Key_webOS_Netflix', 'Key_webOS_Amazon', 'Key_webOS_Disneyplus', 'K
 	'Key_webOS_Voice', 'Key_webOS_Settings', 'Key_webOS_InputSource', 'Key_webOS_3DMode', 'Key_webOS_RecordList',
 	'Key_webOS_LiveTVMenu', 'Key_webOS_ProgramList', 'Key_webOS_AspectRatio', 'Key_webOS_MagicLink', 'Key_webOS_LiveZoom'];
 
+// One button, different key names on different remotes: the Rakuten TV / Movies button is Key_webOS_USP on 2019
+// remotes (MR19, "KEY_MOVIES") and Key_webOS_RakutenTV on later ones. Hearth stores the name on the right.
+var ALIASES = {'Key_webOS_USP': 'Key_webOS_RakutenTV'};
+
 // Never taken over, so the remote can always be used to get out of a bad map: arrows, OK, Back, Exit,
 // Home, power, volume, mute, channels and the number keys (hold a number = LG's Quick Access).
 var PROTECTED_QT = ['Key_Left', 'Key_Right', 'Key_Up', 'Key_Down', 'Key_Return', 'Key_Enter', 'Key_Select', 'Key_Escape',
@@ -82,7 +86,8 @@ function hearthOnConfig (payload) {
 }
 
 function hearthNameOf (key) {
-	return hearthNames[key] || ('#' + key);
+	var name = hearthNames[key] || ('#' + key);
+	return ALIASES[name] || name;
 }
 
 function hearthLaunch (id, params) {
@@ -119,7 +124,7 @@ function hearthRemap (key, pressed, autoRepeat) {
 			}
 		}
 
-		var action = hearthMap[name];
+		var action = hearthMap[name] || hearthMap[hearthNames[key] || ''];
 		if (!action || !action.t) return KeyPolicy.NextPolicy;
 		// the TV is not taking app launches just now (first-time setup, an alert on screen): leave it to the TV
 		if (action.t === 'app' && !access.keyAction.launchApp) return KeyPolicy.NextPolicy;
