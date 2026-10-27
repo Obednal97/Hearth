@@ -36,10 +36,12 @@ export interface SystemInfo {
 	/** free memory in MB (-1: could not be read; undefined: not read yet) */
 	/** what the TV said when it could not (shown under a greyed-out row) */
 	rootDetail?: string;
+	/** the Plex server Hearth reads Continue Watching from (null: not signed in; undefined: not known yet) */
+	plexServer?: string | null;
 }
 
 /** The options that run shell commands, so they can't work without root. */
-export const ROOT_OPTIONS = ['takeover', 'replaceHome', 'tvInput', 'lgLogo'];
+export const ROOT_OPTIONS = ['takeover', 'replaceHome', 'tvInput', 'lgLogo', 'appPreviews'];
 
 /** The two ways of replacing LG Home cannot be on together: the helper script reacts to LG Home coming to the front, the
  *  SAM method keeps LG Home from ever starting. Each greys the other out. */
@@ -289,6 +291,15 @@ const BASE_PREFS: Pref[] = [
 		text: (c) => (c.tvApps ? 'On' : 'Off'),
 		visible: (c) => rootState() !== 'yes' || c.tvApps       // not for rooted users (kept while on, so it can be turned off)
 	},
+	toggle('continueWatching', 'options', 'Show Continue Watching (Plex)', 'What you are part-way through on Plex, above the apps. OK plays it, holding OK opens its page.',
+		(c) => c.continueWatching, (c, v) => ({...c, continueWatching: v})),
+	toggle('appPreviews', 'options', 'Show what your apps feature', 'Rows of what Prime Video, YouTube, iPlayer and other apps feature on LG\'s home screen, one app at a time: press Up above the apps. OK opens it in the app.',
+		(c) => c.appPreviews, (c, v) => ({...c, appPreviews: v})),
+	{
+		id: 'plexAccount', tab: 'options', label: 'Plex account', kind: 'action',
+		description: 'Sign in with a code at plex.tv/link (nothing to type on the TV). OK again signs out.',
+		text: (_c, info) => (info && info.plexServer ? `Signed in · ${info.plexServer}` : 'Not signed in')
+	},
 	toggle('showDebug', 'options', 'Show the Debug tab',
 		'Adds the Debug tab (facts about this TV and the latest events) and the Tests tab (checks of what this TV allows) to Settings, for reporting a problem. OK turns it on or off.',
 		(c) => c.showDebug, (c, v) => ({...c, showDebug: v}))
@@ -301,7 +312,7 @@ export function findPref (id: string): Pref | undefined {
 }
 
 /** The order of the Options tab (anything not listed goes last). */
-const OPTIONS_ORDER = ['tvInput', 'takeover', 'replaceHome', 'lgLogo', 'tvApps', 'showDebug'];
+const OPTIONS_ORDER = ['tvInput', 'takeover', 'replaceHome', 'lgLogo', 'tvApps', 'continueWatching', 'plexAccount', 'appPreviews', 'showDebug'];
 
 function orderOf (tab: PrefTab, id: string): number {
 	if (tab !== 'options') return 0;
