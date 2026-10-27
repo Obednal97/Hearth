@@ -46,7 +46,7 @@ const WAIT_MS = 55000;
 export function actionText (action: RemapAction | undefined, targets: RemapTarget[]): string {
 	if (!action) return "The TV's own action";
 	const target = targets.filter((t) => sameAction(t.action, action))[0];
-	if (action.t === 'app') return `Opens ${target ? target.label : action.id}`;
+	if (action.t === 'app') return target && target.detail === 'Input' ? `Switches to ${target.label}` : `Opens ${target ? target.label : action.id}`;
 	return target ? target.label : action.t;
 }
 
