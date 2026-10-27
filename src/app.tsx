@@ -8,6 +8,7 @@ import {SourceEditor} from './screens/SourceEditor';
 import {PlexLink} from './screens/PlexLink';
 import {cachedContinue, fetchContinue, openContinue, plexServerName, plexSignOut, type ContinueItem} from './lib/plex';
 import {CONTINUE_CARD} from './components/ContinueRow';
+import {cachedPreviews, forgetPreviews, openPreview, readPreviews, type PreviewItem, type PreviewRow} from './lib/previews';
 import {iconFromFile} from './lib/customicon';
 import {log, logLines} from './lib/log';
 import {debugPages, reportText} from './lib/debuginfo';
@@ -99,6 +100,8 @@ export function App () {
 	const [continueItems, setContinueItems] = useState<ContinueItem[]>(() => (config.continueWatching ? cachedContinue() : []));
 	const [continueReloads, setContinueReloads] = useState(0);
 	const continueAt = useRef(0);
+	const [previewRows, setPreviewRows] = useState<PreviewRow[]>(() => (config.appPreviews ? cachedPreviews().rows : []));
+	const previewsAt = useRef(config.appPreviews ? cachedPreviews().at : 0);
 
 	// With the hand-over helper on, note in its log how long this launcher took to show its first screen.
 	useEffect(() => {
@@ -317,6 +320,28 @@ export function App () {
 		}, forced ? 0 : TIMING.backgroundWorkMs);
 		return () => { cancelled = true; window.clearTimeout(timer); };
 	}, [showContinue, wakes, continueReloads]);
+
+	// "Featured in <app>": LG Home's previews, read as root a few seconds after the launcher comes to the front, at most
+	// every 10 minutes (the TV refreshes them rarely). Only apps on the TV are shown, with their own names.
+	const installedTitles = useMemo(() => { const m: Record<string, string> = {}; apps.forEach((a) => { m[a.id] = a.title; }); return m; }, [apps]);
+	const installedRef = useRef(installedTitles);
+	installedRef.current = installedTitles;
+	useEffect(() => {
+		if (!config.appPreviews || !isWebOS()) return undefined;
+		if (Date.now() - previewsAt.current < 600000 && previewRows.length) return undefined;
+		let cancelled = false;
+		const timer = window.setTimeout(() => {
+			if (document.hidden || rootState() === 'no') return;
+			readPreviews(installedRef.current).then(
+				(rows) => { if (cancelled) return; previewsAt.current = Date.now(); setPreviewRows(rows); },
+				(e: Error) => { if (!cancelled) log('Featured rows: ' + (e && e.message ? e.message : 'could not be read')); }
+			);
+		}, TIMING.backgroundWorkMs + 1500);
+		return () => { cancelled = true; window.clearTimeout(timer); };
+	}, [config.appPreviews, wakes]);
+	useEffect(() => { if (!config.appPreviews) { setPreviewRows([]); forgetPreviews(); previewsAt.current = 0; } }, [config.appPreviews]);
+	// only apps that are still installed (the saved rows may be older than the app list)
+	const shownPreviews = useMemo(() => previewRows.filter((r) => !apps.length || installedTitles[r.appId]), [previewRows, installedTitles, apps.length]);
 
 	// Which app the TV's Home button opens: read when Settings opens, so the Options row is right.
 	useEffect(() => {
@@ -715,6 +740,11 @@ export function App () {
 		showToast(`Signed in. Continue Watching comes from ${name}`);
 	}, [config, showToast]);
 
+	const onPreview = useCallback((item: PreviewItem) => {
+		if (config.replaceHome) markAliveSoon(`launcher: opening ${item.appId}`, false);
+		openPreview(item).catch(() => showToast(`Couldn't open ${item.title}`, 'error'));
+	}, [config.replaceHome, showToast]);
+
 	const onContinue = useCallback((item: ContinueItem, details: boolean) => {
 		if (config.replaceHome) markAliveSoon('launcher: opening Plex', false);
 		openContinue(item, details).catch(() => showToast("Couldn't open Plex", 'error'));
@@ -793,7 +823,7 @@ export function App () {
 			{wallpaperOn && natureShow && <PhotoShow intervalSec={config.wallpaper.intervalSec} shuffle={config.wallpaper.shuffle} paused={asleep} />}
 			{wallpaperOn && !natureShow && <Wallpaper config={config.wallpaper} opacity={config.wallpaperOpacity} onProblem={(text) => showToast(text, 'error')} />}
 			{/* Home stays mounted under the other screens so it keeps its focus position. */}
-			<Home items={homeItems} timeFormat={timeFormat} appearance={appearance} active={screen === 'home' && !menu && !recents} paused={asleep} onActivate={onActivate} onLongPress={onLongPress} onBack={openRecents} wake={wakes} focus={focus} weather={weatherLine} continueItems={showContinue ? continueItems : undefined} onContinue={onContinue} />
+			<Home items={homeItems} timeFormat={timeFormat} appearance={appearance} active={screen === 'home' && !menu && !recents} paused={asleep} onActivate={onActivate} onLongPress={onLongPress} onBack={openRecents} wake={wakes} focus={focus} weather={weatherLine} continueItems={showContinue ? continueItems : undefined} onContinue={onContinue} previewRows={config.appPreviews ? shownPreviews : undefined} onPreview={onPreview} />
 			{recents && screen === 'home' && <Recents icons={recentIcons} width={config.recentsW} height={config.recentsH} onClose={closeRecents} onToast={showToast} />}
 			{menu && <AppMenu title={menu.title} moves={menuMoves} hideDetail={menu.app ? 'You can add it back in Settings → Apps' : 'You can add it back in Settings → Sources'} showUninstall={!!menu.app} blockedReason={menuBlocked} onMove={(action) => moveTile(menu.key, action)} onHide={() => hideTile(menu)} onUninstall={() => { if (menu.app) removeApp(menu.app); }} onClose={() => setMenu(null)} />}
 			{/* Settings stays mounted under the picker so it keeps its tab. */}

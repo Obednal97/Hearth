@@ -142,6 +142,8 @@ export interface UserConfig {
 	showSystem: boolean;
 	/** a "Continue Watching" row from Plex above the apps (needs a Plex sign-in, Settings → Options) */
 	continueWatching: boolean;
+	/** "Featured in <app>" rows from LG Home's previews, above Continue Watching (rooted TVs) */
+	appPreviews: boolean;
 	/** the names and icons the user gave to sources, by the source's app id */
 	sourceEdits: SourceEdits;
 	/** the user's own name and picture for apps (same shape as sourceEdits, keyed by app id) */
@@ -217,6 +219,7 @@ export const DEFAULT_CONFIG: UserConfig = {
 	showLgHome: true,
 	showSystem: true,
 	continueWatching: false,
+	appPreviews: false,
 	sourceEdits: {},
 	appEdits: {},
 	rows: 1,
@@ -282,6 +285,7 @@ export function loadConfig (): UserConfig {
 			minimal: parsed.minimal === true,
 			showLgHome: parsed.showLgHome !== false,
 			continueWatching: parsed.continueWatching === true,
+			appPreviews: parsed.appPreviews === true,
 			showSystem: parsed.showSystem !== false,
 			sourceEdits: cleanEdits(parsed.sourceEdits),
 			appEdits: cleanEdits(parsed.appEdits),

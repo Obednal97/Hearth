@@ -731,3 +731,7 @@ html, body {
 }
 .plex-link__char--empty { color: var(--color-text-muted); }
 .plex-link__status { color: var(--color-text-primary); }
+
+/* "Featured in <app>" rows: the clock steps aside while one is shown (the rows need the room) */
+.clock { transition: opacity var(--motion-focus-ms) ease-out; }
+.screen--featured .clock { opacity: 0; }

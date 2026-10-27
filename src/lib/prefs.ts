@@ -41,7 +41,7 @@ export interface SystemInfo {
 }
 
 /** The options that run shell commands, so they can't work without root. */
-export const ROOT_OPTIONS = ['takeover', 'replaceHome', 'tvInput', 'lgLogo'];
+export const ROOT_OPTIONS = ['takeover', 'replaceHome', 'tvInput', 'lgLogo', 'appPreviews'];
 
 /** The two ways of replacing LG Home cannot be on together: the helper script reacts to LG Home coming to the front, the
  *  SAM method keeps LG Home from ever starting. Each greys the other out. */
@@ -291,6 +291,8 @@ const BASE_PREFS: Pref[] = [
 	},
 	toggle('continueWatching', 'options', 'Show Continue Watching (Plex)', 'What you are part-way through on Plex, above the apps. OK plays it, holding OK opens its page.',
 		(c) => c.continueWatching, (c, v) => ({...c, continueWatching: v})),
+	toggle('appPreviews', 'options', 'Show what your apps feature', 'Rows of what Prime Video, YouTube, iPlayer and other apps feature on LG\'s home screen, one app at a time: press Up above the apps. OK opens it in the app.',
+		(c) => c.appPreviews, (c, v) => ({...c, appPreviews: v})),
 	{
 		id: 'plexAccount', tab: 'options', label: 'Plex account', kind: 'action',
 		description: 'Sign in with a code at plex.tv/link (nothing to type on the TV). OK again signs out.',
@@ -308,7 +310,7 @@ export function findPref (id: string): Pref | undefined {
 }
 
 /** The order of the Options tab (anything not listed goes last). */
-const OPTIONS_ORDER = ['tvInput', 'takeover', 'replaceHome', 'lgLogo', 'tvApps', 'continueWatching', 'plexAccount', 'showDebug'];
+const OPTIONS_ORDER = ['tvInput', 'takeover', 'replaceHome', 'lgLogo', 'tvApps', 'continueWatching', 'plexAccount', 'appPreviews', 'showDebug'];
 
 function orderOf (tab: PrefTab, id: string): number {
 	if (tab !== 'options') return 0;

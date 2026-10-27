@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- **Featured in your apps** (Settings → Options, off by default, rooted TVs): the previews LG Home shows for Prime Video, YouTube, iPlayer and other installed apps, one app at a time: press Up above the apps (and above Continue Watching). The clock steps aside while a row is shown. OK opens the item in its app. Read-only from the TV's own preview store, at most every 10 minutes.
 - **Continue Watching from Plex** (Settings → Options, off by default): a row of wide cards above the apps with what you are part-way through on your Plex server, with progress and time left. Sign in with a code at plex.tv/link (nothing to type on the TV); the token is kept apart from the settings and never shown in the Debug tab. OK plays the item, holding OK opens its page. It opens in LG's Plex app at that title. The list is drawn from a saved copy at once and refreshed a few seconds after Hearth comes to the front, at most once a minute. Up from the app row reaches it.
 
 ## 1.2.0
