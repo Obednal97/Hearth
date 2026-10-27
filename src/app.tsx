@@ -6,7 +6,10 @@ import {CityPicker} from './screens/CityPicker';
 import {Recents} from './screens/Recents';
 import {SourceEditor} from './screens/SourceEditor';
 import {PlexLink} from './screens/PlexLink';
-import {cachedContinue, fetchContinue, openContinue, plexServerName, plexSignOut, type ContinueItem} from './lib/plex';
+import {cachedContinue, fetchContinue, openContinue, plexServerName, plexSignOut, PLEX_CLIENTS, type ContinueItem} from './lib/plex';
+
+// local build: open Continue Watching items in Plex Lite when it is installed
+PLEX_CLIENTS.push('com.bednal.plexlite');
 import {CONTINUE_CARD} from './components/ContinueRow';
 import {cachedPreviews, forgetPreviews, openPreview, readPreviews, type PreviewItem, type PreviewRow} from './lib/previews';
 import {iconFromFile} from './lib/customicon';
