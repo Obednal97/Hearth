@@ -54,7 +54,7 @@ export function PowerOnPicker ({choices, chosen, network, restartNeeded, untilRe
 	}
 	if (chosen) {
 		rows.push({key: 'network', kind: 'network', label: `Also when woken over the network: ${network ? 'On' : 'Off'}`,
-			detail: 'Phone apps and Home Assistant switch the TV on this way. Casting to the TV while it is off then opens this app first, until the cast takes over'});
+			detail: 'How phone apps and Home Assistant switch it on. Casting to it while off then opens this app first'});
 	}
 	choices.forEach((c) => rows.push({key: 'c:' + c.id, kind: 'choice', label: c.label, detail: c.detail, choice: c, current: c.id === chosen}));
 	const found = rows.findIndex((r) => r.key === focusKey);
@@ -98,7 +98,9 @@ export function PowerOnPicker ({choices, chosen, network, restartNeeded, untilRe
 			<div class="settings">
 				<h1 class="settings__title">When the TV turns on, open…</h1>
 				<p class="settings__hint">OK chooses · ← → jump a page · Back returns to settings</p>
-				<div class="picker__path">Only when you switch it on yourself: casting, HDMI-CEC and network wake-ups still go where they ask</div>
+				<div class="picker__path">{chosen && network
+					? 'When you switch it on, also from a phone or Home Assistant. HDMI-CEC still goes where it asks'
+					: 'Only when you switch it on yourself: casting, HDMI-CEC and network wake-ups still go where they ask'}</div>
 				<div class="picker">
 					{visible.map((row, n) => {
 						const i = start + n;
