@@ -26,6 +26,10 @@ check "it notes what the TV loaded" "$(cat "$T/loaded")" "youtube.leanback.v4"
 check "the copy stays" "$(there "$T/prefs/bootd.json")" "yes"
 check "and the check stays for the next start" "$(there "$T/init.d/45-launcher-poweron")" "yes"
 
+reset; echo yes > "$T/dir/network"
+check "network wake-ups too: noted in what was loaded" "$(guard check; cat "$T/loaded")" "in place: youtube.leanback.v4
+youtube.leanback.v4+network"
+
 reset; rm -rf "$T/launcher"
 check "Hearth uninstalled: the copy is removed" "$(guard check)" "removed: no launcher"
 check "the TV loaded it this time (noted)" "$(cat "$T/loaded")" "youtube.leanback.v4"

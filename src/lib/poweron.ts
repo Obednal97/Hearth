@@ -37,10 +37,10 @@ export interface PowerOnOutcome {
 	status?: PowerOnStatus | null;
 }
 
-/** Sends the power button to `appId` (from the next start). The copy is written aside and read back before it is
+/** Sends the power button to `appId` (from the next start), and network wake-ups too when `network`. The copy is written aside and read back before it is
  *  moved into place in one step. A failure takes back only what this attempt wrote, so an earlier choice stays; the
  *  outcome then carries what the TV has now. */
-export function setPowerOnApp (appId: string): Promise<PowerOnOutcome> {
+export function setPowerOnApp (appId: string, network = false): Promise<PowerOnOutcome> {
 	if (!isWebOS()) return Promise.resolve({result: 'failed', detail: 'not running on a TV'});
 	return readPowerOn().then((status): PowerOnOutcome | Promise<PowerOnOutcome> => {
 		if (!status) return {result: 'failed', detail: 'the TV did not answer', status};
@@ -48,21 +48,21 @@ export function setPowerOnApp (appId: string): Promise<PowerOnOutcome> {
 		if (status.foreign) return {result: 'foreign', detail: '', status};
 		return exec(READ_STOCK_COMMAND, 6000).then((stock) => {
 			let override: string;
-			try { override = buildOverride(stock, appId); }
+			try { override = buildOverride(stock, appId, network); }
 			catch { throw new Error("the TV's start-up file is not the kind Hearth knows"); }
 			return run(writeSteps(lf(guardSh), override, appId))
 				.then(() => exec(READ_NEW_COMMAND, 6000))
 				.then((written) => {
 					if (written.trim() !== override.trim()) throw new Error('the file did not read back the same');
-					return exec(finishCommand(appId), 10000);
+					return exec(finishCommand(appId, network), 10000);
 				})
 				.then((out) => {
 					if (!/finished/.test(out)) throw new Error('the last step did not finish');
 					return readPowerOn();
 				})
 				.then((now): PowerOnOutcome => {
-					if (!now || now.chosen !== appId) return {result: 'failed', detail: 'the TV did not keep it', status: now};
-					log(`Power-on app: ${appId} (from the next start)`);
+					if (!now || now.chosen !== appId || now.network !== network) return {result: 'failed', detail: 'the TV did not keep it', status: now};
+					log(`Power-on app: ${appId}${network ? ' (network wake-ups too)' : ''} (from the next start)`);
 					return {result: 'applied', detail: '', status: now};
 				});
 		}).catch((error: Error): Promise<PowerOnOutcome> => {

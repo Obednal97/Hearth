@@ -28,6 +28,9 @@ export const POWER_ON_LINK = '/var/lib/webosbrew/init.d/45-launcher-poweron';
 export const LOADED_FILE = '/tmp/launcher-poweron.loaded';
 /** The reasons that mean "someone switched the TV on": the remote's power button, the TV's own button, a cold start. */
 export const POWER_ON_REASONS = ['remoteKey', 'localKey', 'micomPower'] as const;
+/** Optional ("Also when woken over the network"): a Wake-on-LAN packet, which is how phone apps and home automation
+ *  (e.g. Home Assistant's "turn on") switch the TV on, and also how a phone casting to a TV that is off wakes it. */
+export const NETWORK_REASONS = ['wakeOnWiFi', 'wakeOnLan'] as const;
 /** What LG's file has for a reason it does not send to an app (resume Netflix if it was open, else the last input). */
 export const LAST_APP = '{LAST_APP}';
 
@@ -40,28 +43,41 @@ export function isAppId (value: unknown): value is string {
 type Json = Record<string, unknown>;
 const isObject = (v: unknown): v is Json => !!v && typeof v === 'object' && !Array.isArray(v);
 
-/** LG's start-up file with the power-on reasons sent to `appId`, as the text to write. Throws when the file is not the
- *  kind this method knows (no "common.firstAppByPowerOnReason" table), so nothing is written on such a TV. */
-export function buildOverride (stockText: string, appId: string): string {
+/** LG's start-up file with the power-on reasons sent to `appId` (and the network wake-ups too when `network`), as the
+ *  text to write. Throws when the file is not the kind this method knows (no "common.firstAppByPowerOnReason" table), so
+ *  nothing is written on such a TV. */
+export function buildOverride (stockText: string, appId: string, network = false): string {
 	if (!isAppId(appId)) throw new Error('Invalid app id');
 	const stock = JSON.parse(stockText) as unknown;
 	if (!isObject(stock) || !isObject(stock.common) || !isObject(stock.common.firstAppByPowerOnReason)) throw new Error('unknown start-up file');
 	const common = stock.common as Json;
 	const table: Json = {...(common.firstAppByPowerOnReason as Json)};
 	POWER_ON_REASONS.forEach((reason) => { table[reason] = appId; });
+	if (network) NETWORK_REASONS.forEach((reason) => { table[reason] = appId; });
 	return JSON.stringify({...stock, common: {...common, firstAppByPowerOnReason: table}}, null, 4) + '\n';
+}
+
+function reasonTable (text: string): Json | null {
+	try {
+		const data = JSON.parse(text) as unknown;
+		return isObject(data) && isObject(data.common) && isObject(data.common.firstAppByPowerOnReason) ? data.common.firstAppByPowerOnReason : null;
+	} catch {
+		return null;
+	}
 }
 
 /** The app a start-up file sends the power button to: an app id, or '' when it does what LG's file does. */
 export function overrideApp (text: string): string {
-	try {
-		const data = JSON.parse(text) as unknown;
-		const table = isObject(data) && isObject(data.common) && isObject(data.common.firstAppByPowerOnReason) ? data.common.firstAppByPowerOnReason : null;
-		const app = table ? table.remoteKey : undefined;
-		return isAppId(app) ? app : '';
-	} catch {
-		return '';
-	}
+	const table = reasonTable(text);
+	const app = table ? table.remoteKey : undefined;
+	return isAppId(app) ? app : '';
+}
+
+/** The start-up file also sends network wake-ups to that app. */
+export function overrideNetwork (text: string): boolean {
+	const table = reasonTable(text);
+	const app = overrideApp(text);
+	return !!table && !!app && table.wakeOnWiFi === app;
 }
 
 /** What is on the TV. */
@@ -70,8 +86,12 @@ export interface PowerOnStatus {
 	supported: boolean;
 	/** the app chosen now ('' = the TV's default: no copy of Hearth's in place) */
 	chosen: string;
+	/** network wake-ups open the chosen app too */
+	network: boolean;
 	/** the app the running bootd loaded at the last start ('' = the TV's default). Differs from chosen until a restart */
 	loaded: string;
+	/** and whether that included network wake-ups */
+	loadedNetwork: boolean;
 	/** a copy is in place that Hearth did not write (left alone; this method stays off) */
 	foreign: boolean;
 }
@@ -105,18 +125,25 @@ export function parseStatus (output: string): PowerOnStatus | null {
 	if (!fields.support) return null;
 	const override = fields.override === 'yes';
 	const ours = override && fields.ours === 'yes';
-	const loaded = isAppId(fields.loaded) && fields.loaded !== 'stock' ? fields.loaded : '';
+	// the start-up check writes "<app>" or "<app>+network" ("stock" for none)
+	const [loadedApp, loadedExtra] = (fields.loaded || '').split('+');
+	const loaded = isAppId(loadedApp) && loadedApp !== 'stock' ? loadedApp : '';
+	const file = output.slice(at + SEPARATOR.length);
+	const chosen = ours ? overrideApp(file) : '';
 	return {
 		supported: fields.support === 'yes',
-		chosen: ours ? overrideApp(output.slice(at + SEPARATOR.length)) : '',
+		chosen,
+		network: !!chosen && overrideNetwork(file),
 		loaded,
+		loadedNetwork: !!loaded && loadedExtra === 'network',
 		foreign: override && !ours
 	};
 }
 
 /** A restart is still needed before the TV does what was chosen. */
 export function needsRestart (status: PowerOnStatus | null | undefined): boolean {
-	return !!status && status.supported && !status.foreign && status.chosen !== status.loaded;
+	return !!status && status.supported && !status.foreign
+		&& (status.chosen !== status.loaded || (!!status.chosen && status.network !== status.loadedNetwork));
 }
 
 export const READ_STOCK_COMMAND = `cat '${BOOTD_FILE}'`;
@@ -142,7 +169,7 @@ export function writeSteps (guardSh: string, override: string, appId: string): I
 /** One command: notes the new copy's sum next to the old one, moves the copy into place, keeps only the new sum, notes
  *  the app and LG's file, flushes it all to storage, then adds the start-up link (last, so a half-written check never
  *  runs). Prints "finished" at the end. */
-export function finishCommand (appId: string): string {
+export function finishCommand (appId: string, network = false): string {
 	if (!isAppId(appId)) throw new Error('Invalid app id');
 	const d = POWER_ON_DIR;
 	return [
@@ -155,6 +182,7 @@ export function finishCommand (appId: string): string {
 		`mv -f '${d}/override.md5.tmp' '${d}/override.md5'`,
 		`md5sum '${BOOTD_FILE}' | cut -d ' ' -f 1 > '${d}/stock.md5'`,
 		`printf '%s\n' '${appId}' > '${d}/app'`,
+		`echo '${network ? 'yes' : 'no'}' > '${d}/network'`,
 		'sync',
 		`ln -sf '${d}/guard.sh' '${POWER_ON_LINK}'`,
 		'echo finished'
