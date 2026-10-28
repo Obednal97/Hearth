@@ -13,6 +13,8 @@ interface Props {
 	choices: PowerOnChoice[];
 	/** what is chosen now ('' = the TV's default) */
 	chosen: string;
+	/** network wake-ups open it too */
+	network: boolean;
 	/** the TV still needs a restart before it does what was chosen */
 	restartNeeded: boolean;
 	/** what the TV does until then, in words */
@@ -20,13 +22,14 @@ interface Props {
 	/** a change is being made */
 	busy: boolean;
 	onChoose: (id: string) => void;
+	onNetwork: () => void;
 	onRestart: () => void;
 	onClose: () => void;
 }
 
 interface Row {
 	key: string;
-	kind: 'restart' | 'choice';
+	kind: 'restart' | 'network' | 'choice';
 	label: string;
 	detail?: string;
 	choice?: PowerOnChoice;
@@ -37,7 +40,7 @@ const VISIBLE_ROWS = 8;
 
 /** Settings → Options → "When the TV turns on, open…": the TV's default, Hearth, then every app. OK chooses. While a
  *  restart is still needed, the first row offers it. */
-export function PowerOnPicker ({choices, chosen, restartNeeded, untilRestart, busy, onChoose, onRestart, onClose}: Props) {
+export function PowerOnPicker ({choices, chosen, network, restartNeeded, untilRestart, busy, onChoose, onNetwork, onRestart, onClose}: Props) {
 	// focus is kept by row, not by position: the restart row comes and goes at the top, and the focus must stay on the
 	// same app when it does. It starts on the current choice.
 	const [focusKey, setFocusKey] = useState('c:' + chosen);
@@ -48,6 +51,10 @@ export function PowerOnPicker ({choices, chosen, restartNeeded, untilRestart, bu
 		rows.push(confirm
 			? {key: 'restart', kind: 'restart', label: 'Press OK again to restart the TV', detail: 'The screen goes dark for about half a minute. Back cancels'}
 			: {key: 'restart', kind: 'restart', label: 'Restart the TV now to start using it', detail: `The TV reads this when it starts up. Until it restarts, it opens ${untilRestart}`});
+	}
+	if (chosen) {
+		rows.push({key: 'network', kind: 'network', label: `Also when woken over the network: ${network ? 'On' : 'Off'}`,
+			detail: 'Phone apps and Home Assistant switch the TV on this way. Casting to the TV while it is off then opens this app first, until the cast takes over'});
 	}
 	choices.forEach((c) => rows.push({key: 'c:' + c.id, kind: 'choice', label: c.label, detail: c.detail, choice: c, current: c.id === chosen}));
 	const found = rows.findIndex((r) => r.key === focusKey);
@@ -62,6 +69,7 @@ export function PowerOnPicker ({choices, chosen, restartNeeded, untilRestart, bu
 			return;
 		}
 		setConfirm(false);
+		if (row.kind === 'network') { onNetwork(); return; }
 		if (row.choice && !row.current) onChoose(row.choice.id);
 	};
 
@@ -78,7 +86,7 @@ export function PowerOnPicker ({choices, chosen, restartNeeded, untilRestart, bu
 			default: break;
 		}
 		return true;
-	}, [rows.length, index, focusKey, confirm, busy, chosen, choices, restartNeeded]);   // eslint-disable-line react-hooks/exhaustive-deps
+	}, [rows.length, index, focusKey, confirm, busy, chosen, network, choices, restartNeeded]);   // eslint-disable-line react-hooks/exhaustive-deps
 
 	useKeys(handleKey, true);
 
@@ -102,7 +110,7 @@ export function PowerOnPicker ({choices, chosen, restartNeeded, untilRestart, bu
 								onMouseEnter={() => { if (row.kind !== 'restart') setConfirm(false); focusAt(i); }}
 								onClick={() => { focusAt(i); activate(i); }}
 							>
-								<PickerIcon kind={row.kind === 'restart' ? 'power' : row.current ? 'pin' : row.choice && row.choice.id === '' ? 'default' : 'app'} />
+								<PickerIcon kind={row.kind === 'restart' ? 'power' : row.kind === 'network' ? 'info' : row.current ? 'pin' : row.choice && row.choice.id === '' ? 'default' : 'app'} />
 								<div class="picker__text">
 									<div class="picker__label">{row.label}{row.current ? ' (now)' : ''}</div>
 									{row.detail && <div class="picker__detail">{row.detail}</div>}

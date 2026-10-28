@@ -108,13 +108,14 @@ const plexRow = (info) => p.optionsFor('options', c0, info).filter((o) => o.id =
 eq([plexRow({homeHook: null, plexServer: null}), plexRow({homeHook: null, plexServer: 'Home server'})], ['Not signed in', 'Signed in · Home server'], 'the Plex account row says whether Hearth is signed in, and to which server');
 // "When the TV turns on, open…"
 const po = (info, c = c0) => p.optionsFor('options', c, {homeHook: null, ...info}).find((o) => o.id === 'powerOnApp').valueText;
-const st = (chosen, loaded, extra = {}) => ({supported: true, chosen, loaded, foreign: false, ...extra});
+const st = (chosen, loaded, extra = {}) => ({supported: true, chosen, network: false, loaded, loadedNetwork: false, foreign: false, ...extra});
 eq(po({}), 'Unknown', 'power-on row: Unknown until the TV has been asked');
 eq(po({}, {...c0, powerOnApp: 'youtube.leanback.v4'}), 'youtube.leanback.v4', 'and the saved choice until then');
 eq(po({powerOn: st('', '')}), 'TV default', 'nothing chosen: the TV default');
 eq(po({powerOn: st('youtube.leanback.v4', 'youtube.leanback.v4'), powerOnNames: {chosen: 'YouTube'}}), 'YouTube', 'an app chosen and loaded: its name');
 eq(po({powerOn: st('youtube.leanback.v4', ''), powerOnNames: {chosen: 'YouTube'}}), 'YouTube (after a restart)', 'chosen but not loaded yet: after a restart');
 eq(po({powerOn: st('', 'youtube.leanback.v4')}), 'TV default (after a restart)', 'switched off but still loaded: after a restart');
+eq(po({powerOn: st('youtube.leanback.v4', 'youtube.leanback.v4', {network: true, loadedNetwork: true}), powerOnNames: {chosen: 'YouTube'}}), 'YouTube (also network)', 'network wake-ups too: said so');
 eq(po({powerOn: st('', '', {supported: false})}), 'Not on this TV', 'a TV whose software lacks it: Not on this TV');
 eq(po({powerOn: st('', '', {foreign: true})}), 'Set by another tool', 'someone else\'s start-up file: said so');
 const poDis = (info) => p.optionsFor('options', c0, info).find((o) => o.id === 'powerOnApp').disabled;

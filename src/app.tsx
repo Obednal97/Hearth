@@ -604,17 +604,18 @@ export function App () {
 		return {chosen: powerOnTitle(status ? status.chosen : config.powerOnApp), loaded: powerOnTitle(status ? status.loaded : '')};
 	}, [systemInfo.powerOn, config.powerOnApp, powerOnTitle]);
 
-	const onPowerOnChoose = useCallback((id: string) => {
+	/** Puts a choice on the TV: `id` ('' = the TV's default), with or without network wake-ups. */
+	const applyPowerOn = useCallback((id: string, network: boolean, done: string) => {
 		setPowerOnBusy(true);
 		showToast('Saving…');
-		(id ? setPowerOnApp(id) : clearPowerOnApp()).then(({result, detail, status}) => {
+		(id ? setPowerOnApp(id, network) : clearPowerOnApp()).then(({result, detail, status}) => {
 			setPowerOnBusy(false);
 			setSystemInfo((previous) => ({...previous, powerOn: status}));
 			const ok = result === 'applied' || result === 'removed';
 			// the saved choice follows what the TV has now (a failed change leaves the earlier one in place)
-			const now = status ? status.chosen : (ok ? id : null);
-			if (now !== null) setConfig((c) => { const next = {...c, powerOnApp: now}; saveConfig(next); return next; });
-			if (ok && !needsRestart(status)) showToast(`Done: the TV opens ${powerOnName(id, powerOnTitle(id))} when you turn it on`);
+			const now = status ? {app: status.chosen, network: status.network} : (ok ? {app: id, network} : null);
+			if (now) setConfig((c) => { const next = {...c, powerOnApp: now.app, powerOnNetwork: now.network}; saveConfig(next); return next; });
+			if (ok && !needsRestart(status)) showToast(done);
 			else if (ok) showToast(powerOnMessage(result, powerOnTitle(id)));
 			else showToast(powerOnMessage(result, status ? powerOnName(status.chosen, powerOnTitle(status.chosen)) : '', detail), 'error');
 		}).catch((error: Error) => {
@@ -622,6 +623,15 @@ export function App () {
 			showToast(powerOnMessage('failed', '', error && error.message ? error.message : ''), 'error');
 		});
 	}, [showToast, powerOnTitle]);
+
+	const powerOnNetwork = systemInfo.powerOn ? systemInfo.powerOn.network : config.powerOnNetwork;
+	const onPowerOnChoose = useCallback((id: string) => {
+		applyPowerOn(id, !!id && powerOnNetwork, `Done: the TV opens ${powerOnName(id, powerOnTitle(id))} when you turn it on`);
+	}, [applyPowerOn, powerOnNetwork, powerOnTitle]);
+	const onPowerOnNetwork = useCallback(() => {
+		const app = systemInfo.powerOn ? systemInfo.powerOn.chosen : config.powerOnApp;
+		if (app) applyPowerOn(app, !powerOnNetwork, powerOnNetwork ? 'Done: network wake-ups go where they ask again' : 'Done: network wake-ups open it too');
+	}, [applyPowerOn, powerOnNetwork, systemInfo.powerOn, config.powerOnApp]);
 
 	const onPowerOnRestart = useCallback(() => {
 		showToast('Restarting the TV…');
@@ -1047,10 +1057,12 @@ export function App () {
 				<PowerOnPicker
 					choices={powerOnChoices}
 					chosen={systemInfo.powerOn ? systemInfo.powerOn.chosen : config.powerOnApp}
+					network={powerOnNetwork}
 					restartNeeded={needsRestart(systemInfo.powerOn)}
 					untilRestart={systemInfo.powerOn ? powerOnName(systemInfo.powerOn.loaded, powerOnNames.loaded) : powerOnName('')}
 					busy={powerOnBusy}
 					onChoose={onPowerOnChoose}
+					onNetwork={onPowerOnNetwork}
 					onRestart={onPowerOnRestart}
 					onClose={() => setScreen('settings')}
 				/>

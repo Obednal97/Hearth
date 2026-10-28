@@ -24,11 +24,15 @@ TV on most sets, which shows "No signal" when no aerial is plugged in.
 
 `bootd` reads `/var/luna/preferences/bootd.json` **instead of** its own file when that file exists (LG left it in for
 debugging). Hearth writes that file: LG's own file with `remoteKey`, `localKey` and `micomPower` (a cold start, e.g. after
-a power cut or a restart) set to the chosen app. Nothing runs in the background.
+a power cut or a restart) set to the chosen app (plus `wakeOnWiFi` and `wakeOnLan` when network wake-ups are on). Nothing runs in the background.
 
 - **Only when you switch it on yourself.** Every other reason keeps LG's behaviour, so the TV still goes where it is
   asked: casting from a phone and other network wake-ups (`wakeOnWiFi`, `wakeOnLan`), HDMI-CEC (`hdmiCec`), the Netflix
   and Prime Video buttons, timers.
+- **Optional: also when woken over the network.** *Also when woken over the network* (in the list, off by default)
+  adds `wakeOnWiFi` and `wakeOnLan`, which is how phone apps and home automation (Home Assistant's "turn on") switch the
+  TV on. The catch: a phone casting to the TV while it is off wakes it the same way, so the chosen app opens first until
+  the cast takes over.
 - **No Live TV first.** The app is opened behind LG's own start-up cover (`coverUI`), the way Netflix is, so Live TV is
   not drawn first.
 - **A missing app is safe.** If the app cannot be opened (uninstalled), the TV opens the last input as usual.

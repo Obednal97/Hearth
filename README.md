@@ -258,6 +258,7 @@ If a rooted TV says "the TV refused the command", or the Homebrew Channel gives 
 
 - It uses the TV's own start-up table, the one that makes the Netflix button switch the TV on into Netflix: Hearth writes a copy of `/etc/palm/bootd.json` to `/var/luna/preferences/bootd.json` with the power button, the TV's own button and a cold start pointed at your app. Nothing runs in the background, and the app opens behind LG's start-up cover, so Live TV is not drawn first.
 - **Only when you switch the TV on yourself.** Casting from a phone, other network wake-ups and HDMI-CEC still go where they ask.
+- **Optional: also when woken over the network** (in the same list, off by default). Phone apps and Home Assistant's "turn on" wake the TV with a Wake-on-LAN packet; with this on, that opens your app too. The catch: casting to the TV while it is off then opens your app first, until the cast takes over.
 - **It starts working after the TV restarts once** (a full restart, not standby): the TV reads the table only when it starts. Hearth offers *Restart the TV now*, and the row says *(after a restart)* until then.
 - Choosing *Live TV or the last input* turns it off: from the next restart the TV does exactly what it did before. If the chosen app is uninstalled, the TV opens its last input as usual.
 - Tested on webOS 4.5 (LG 65UM7100PLA, firmware 05.40.97). Elsewhere the row is greyed out unless the TV has the same start-up table.

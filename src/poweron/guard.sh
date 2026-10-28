@@ -4,7 +4,8 @@
 #
 # That setting writes /var/luna/preferences/bootd.json, a copy of the TV's /etc/palm/bootd.json that sends the power
 # button to the chosen app. The TV's boot daemon reads it when it starts. At each start this script:
-#   1. notes in $LOADED which app bootd has just loaded ("stock" for none), so Hearth can say when a restart is needed;
+#   1. notes in $LOADED which app bootd has just loaded ("<app>", "<app>+network", "stock" for none), so Hearth can say
+#      when a restart is needed;
 #   2. if Hearth is uninstalled, removes the copy (the TV is back to its own behaviour from the next start);
 #   3. if a software update changed the TV's own file, removes the copy too, so an old copy never hides the new file;
 #   4. if the copy was changed or removed by someone else, leaves it and removes only itself.
@@ -38,7 +39,8 @@ check () {
     # what bootd read a moment ago: the copy is ours and in place, or not
     app=$(cat "$DIR/app" 2>/dev/null)
     case "$app" in ""|*[!A-Za-z0-9._-]*) app="" ;; esac
-    if ours && [ -n "$app" ]; then echo "$app" > "$LOADED"; else echo stock > "$LOADED"; fi
+    extra=""; [ "$(cat "$DIR/network" 2>/dev/null)" = yes ] && extra="+network"
+    if ours && [ -n "$app" ]; then echo "$app$extra" > "$LOADED"; else echo stock > "$LOADED"; fi
 
     if ! ours; then
         log "the start-up file is not Hearth's any more: left alone"
@@ -54,7 +56,7 @@ check () {
         log "the TV's own start-up file changed (software update?): Hearth's copy removed, choose the app again in Hearth"
         echo "removed: stock changed"; return 0
     fi
-    log "in place: the TV opens $app when it is switched on"
+    log "in place: the TV opens $app when it is switched on${extra:+ (network wake-ups too)}"
     echo "in place: $app"
 }
 
