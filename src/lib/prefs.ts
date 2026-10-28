@@ -91,10 +91,10 @@ export interface Pref {
 function powerOnText (c: UserConfig, info?: SystemInfo): string {
 	const status = info && info.powerOn;
 	const names = (info && info.powerOnNames) || {};
-	if (!status) return c.powerOnApp ? powerOnName(c.powerOnApp, names.chosen) : 'Unknown';
+	if (!status) return c.powerOnApp ? powerOnName(c.powerOnApp, names.chosen) + (c.powerOnNetwork ? ' + network' : '') : 'Unknown';
 	if (!status.supported) return 'Not on this TV';
 	if (status.foreign) return 'Set by another tool';
-	const chosen = status.chosen ? powerOnName(status.chosen, names.chosen) + (status.network ? ' (also network)' : '') : 'TV default';
+	const chosen = status.chosen ? powerOnName(status.chosen, names.chosen) + (status.network ? ' + network' : '') : 'TV default';
 	return needsRestart(status) ? `${chosen} (after a restart)` : chosen;
 }
 
@@ -295,7 +295,7 @@ const BASE_PREFS: Pref[] = [
 	},
 	{
 		id: 'powerOnApp', tab: 'options', label: 'When the TV turns on, open…', kind: 'action',
-		description: 'What the TV shows when you switch it on with the remote or the TV\'s button: Live TV or the last input as usual, Hearth, or any app. Casting, HDMI-CEC and network wake-ups go where they ask unless you also choose network wake-ups. Starts working after the TV restarts once. OK chooses.',
+		description: 'What the TV shows when you switch it on with the remote or the TV\'s button: Live TV or the last input as usual, Hearth, or any app. Casting and HDMI-CEC go where they ask; so do network wake-ups (phone apps, Home Assistant) unless you include them in the list. Starts working after the TV restarts once. OK chooses.',
 		text: powerOnText
 	},
 	{

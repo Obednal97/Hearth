@@ -26,7 +26,7 @@ check "it notes what the TV loaded" "$(cat "$T/loaded")" "youtube.leanback.v4"
 check "the copy stays" "$(there "$T/prefs/bootd.json")" "yes"
 check "and the check stays for the next start" "$(there "$T/init.d/45-launcher-poweron")" "yes"
 
-reset; echo yes > "$T/dir/network"
+reset; echo '{"common":{"firstAppByPowerOnReason":{"remoteKey":"youtube.leanback.v4","wakeOnWiFi":"youtube.leanback.v4"}}}' > "$T/prefs/bootd.json"; sum "$T/prefs/bootd.json" > "$T/dir/override.md5"
 check "network wake-ups too: noted in what was loaded" "$(guard check; cat "$T/loaded")" "in place: youtube.leanback.v4
 youtube.leanback.v4+network"
 
@@ -53,9 +53,9 @@ reset; rm -f "$T/prefs/bootd.json"
 check "the copy was removed by hand: the check removes itself" "$(guard check)" "not ours"
 check "nothing loaded" "$(cat "$T/loaded")" "stock"
 
-reset; echo "x'; reboot" > "$T/dir/app"
+reset; echo "{\"common\":{\"firstAppByPowerOnReason\":{\"remoteKey\":\"x'; reboot\"}}}" > "$T/prefs/bootd.json"; sum "$T/prefs/bootd.json" > "$T/dir/override.md5"
 guard check >/dev/null
-check "a noted app that is not an app id is not used" "$(cat "$T/loaded")" "stock"
+check "an app in the copy that is not an app id is not used" "$(cat "$T/loaded")" "stock"
 
 reset; : > "$T/prefs/bootd.json"
 check "an empty copy (power cut) is removed" "$(guard check)" "removed: empty"

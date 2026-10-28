@@ -69,7 +69,10 @@ export function setPowerOnApp (appId: string, network = false): Promise<PowerOnO
 			log(`Power-on app: not set: ${why(error)}`);
 			return exec(ABANDON_COMMAND, 6000).catch(() => '')
 				.then(() => readPowerOn())
-				.then((now): PowerOnOutcome => ({result: 'failed', detail: why(error), status: now}));
+				// a slow last step can time out here and still finish on the TV: what the TV has now decides
+				.then((now): PowerOnOutcome => (now && now.chosen === appId && now.network === network
+					? {result: 'applied', detail: '', status: now}
+					: {result: 'failed', detail: why(error), status: now}));
 		});
 	});
 }
