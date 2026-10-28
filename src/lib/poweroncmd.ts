@@ -78,11 +78,16 @@ export interface PowerOnStatus {
 
 const SEPARATOR = '--- start-up file ---';
 
+/** Shell test: the copy in place is one Hearth wrote. override.md5 lists its sum; while a change is being finished it
+ *  lists the old and the new one, so an interruption at any point never makes Hearth's own copy look like someone
+ *  else's. An empty copy (a power cut right after writing) is never valid, so it counts as Hearth's to clean up. */
+const OURS = `{ [ -f '${OVERRIDE_FILE}' ] && { [ ! -s '${OVERRIDE_FILE}' ] || grep -qx "$(md5sum '${OVERRIDE_FILE}' | cut -d ' ' -f 1)" '${POWER_ON_DIR}/override.md5' 2>/dev/null; }; }`;
+
 /** One command for everything Settings shows. Lines of key=value, then the copy itself after SEPARATOR. */
 export const STATUS_COMMAND = [
 	`if grep -q '${OVERRIDE_FILE}' '${BOOTD_BIN}' 2>/dev/null && grep -q firstAppByPowerOnReason '${BOOTD_FILE}' 2>/dev/null; then echo support=yes; else echo support=no; fi`,
 	`if [ -f '${OVERRIDE_FILE}' ]; then echo override=yes; else echo override=no; fi`,
-	`if [ -f '${OVERRIDE_FILE}' ] && [ "$(md5sum '${OVERRIDE_FILE}' | cut -d ' ' -f 1)" = "$(cat '${POWER_ON_DIR}/override.md5' 2>/dev/null)" ]; then echo ours=yes; else echo ours=no; fi`,
+	`if ${OURS}; then echo ours=yes; else echo ours=no; fi`,
 	`echo "loaded=$(cat '${LOADED_FILE}' 2>/dev/null)"`,
 	`echo '${SEPARATOR}'`,
 	`cat '${OVERRIDE_FILE}' 2>/dev/null; true`
@@ -119,7 +124,7 @@ const NEW_FILE = `${OVERRIDE_FILE}.hearth-new`;
 export const READ_NEW_COMMAND = `cat '${NEW_FILE}'`;
 
 /** Writes the start-up check, then the copy under a temporary name. After these, READ_NEW_COMMAND must give back
- *  `override` exactly before finishSteps() moves it into place. */
+ *  `override` exactly before FINISH moves it into place. Nothing the TV reads has changed yet. */
 export function writeSteps (guardSh: string, override: string, appId: string): InstallStep[] {
 	if (!isAppId(appId)) throw new Error('Invalid app id');
 	const write = (name: string, path: string, text: string): InstallStep[] => {
@@ -134,24 +139,40 @@ export function writeSteps (guardSh: string, override: string, appId: string): I
 	];
 }
 
-/** Moves the copy into place and notes what was written. The start-up link is added last, so a half-written check
- *  never runs. */
-export function finishSteps (appId: string): InstallStep[] {
+/** One command: notes the new copy's sum next to the old one, moves the copy into place, keeps only the new sum, notes
+ *  the app and LG's file, flushes it all to storage, then adds the start-up link (last, so a half-written check never
+ *  runs). Prints "finished" at the end. */
+export function finishCommand (appId: string): string {
 	if (!isAppId(appId)) throw new Error('Invalid app id');
+	const d = POWER_ON_DIR;
 	return [
-		{name: 'put the start-up file in place', command: `mv -f '${NEW_FILE}' '${OVERRIDE_FILE}'`},
-		{name: 'note what was written', command: `md5sum '${OVERRIDE_FILE}' | cut -d ' ' -f 1 > '${POWER_ON_DIR}/override.md5' && md5sum '${BOOTD_FILE}' | cut -d ' ' -f 1 > '${POWER_ON_DIR}/stock.md5' && echo '${appId}' > '${POWER_ON_DIR}/app'`},
-		{name: 'add the start-up link', command: `ln -sf '${POWER_ON_DIR}/guard.sh' '${POWER_ON_LINK}'`}
-	];
+		`new=$(md5sum '${NEW_FILE}' | cut -d ' ' -f 1)`,
+		`[ -n "$new" ]`,
+		`{ cat '${d}/override.md5' 2>/dev/null; echo "$new"; } > '${d}/override.md5.tmp'`,
+		`mv -f '${d}/override.md5.tmp' '${d}/override.md5'`,
+		`mv -f '${NEW_FILE}' '${OVERRIDE_FILE}'`,
+		`echo "$new" > '${d}/override.md5.tmp'`,
+		`mv -f '${d}/override.md5.tmp' '${d}/override.md5'`,
+		`md5sum '${BOOTD_FILE}' | cut -d ' ' -f 1 > '${d}/stock.md5'`,
+		`printf '%s\n' '${appId}' > '${d}/app'`,
+		'sync',
+		`ln -sf '${d}/guard.sh' '${POWER_ON_LINK}'`,
+		'echo finished'
+	].join(' && ');
 }
+
+/** After a failed change: removes what that attempt wrote (the temporary copy; the folder too when no copy of Hearth's
+ *  is in place). Whatever was in place before stays. */
+export const ABANDON_COMMAND = `rm -f '${NEW_FILE}' '${POWER_ON_DIR}/override.md5.tmp'; if ! ${OURS}; then if [ ! -f '${OVERRIDE_FILE}' ]; then rm -f '${POWER_ON_LINK}'; rm -rf '${POWER_ON_DIR}'; fi; fi; true`;
 
 /** Back to the TV's own behaviour (from the next start): Hearth's copy and the check are removed. A copy Hearth did not
  *  write is left alone. */
 export const REMOVE_COMMAND = [
 	`rm -f '${NEW_FILE}'`,
-	`if [ -f '${OVERRIDE_FILE}' ] && [ "$(md5sum '${OVERRIDE_FILE}' | cut -d ' ' -f 1)" = "$(cat '${POWER_ON_DIR}/override.md5' 2>/dev/null)" ]; then rm -f '${OVERRIDE_FILE}'; fi`,
+	`if ${OURS}; then rm -f '${OVERRIDE_FILE}'; fi`,
 	`rm -f '${POWER_ON_LINK}'`,
 	`rm -rf '${POWER_ON_DIR}'`,
+	'sync',
 	`if [ -f '${OVERRIDE_FILE}' ]; then echo kept; else echo removed; fi`
 ].join('; ');
 
@@ -172,6 +193,6 @@ export function powerOnMessage (result: PowerOnResult, name = '', detail = ''): 
 		case 'removed': return 'Turned off. After the TV restarts once, it opens Live TV or the last input again';
 		case 'unsupported': return "This TV's software has no power-on setting Hearth can use, so nothing was changed";
 		case 'foreign': return `Another start-up file is already in place (${OVERRIDE_FILE}), so Hearth left it alone`;
-		default: return `Couldn't change the power-on app${detail ? ': ' + detail : ''}. Nothing was changed`;
+		default: return `Couldn't change the power-on app${detail ? ' (' + detail + ')' : ''}. ${name ? `It is set to: ${name}` : 'It was left as it was'}`;
 	}
 }

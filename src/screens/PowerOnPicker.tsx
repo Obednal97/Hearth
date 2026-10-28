@@ -38,7 +38,9 @@ const VISIBLE_ROWS = 8;
 /** Settings → Options → "When the TV turns on, open…": the TV's default, Hearth, then every app. OK chooses. While a
  *  restart is still needed, the first row offers it. */
 export function PowerOnPicker ({choices, chosen, restartNeeded, untilRestart, busy, onChoose, onRestart, onClose}: Props) {
-	const [index, setIndex] = useState(0);
+	// focus is kept by row, not by position: the restart row comes and goes at the top, and the focus must stay on the
+	// same app when it does. It starts on the current choice.
+	const [focusKey, setFocusKey] = useState('c:' + chosen);
 	const [confirm, setConfirm] = useState(false);
 
 	const rows: Row[] = [];
@@ -48,6 +50,9 @@ export function PowerOnPicker ({choices, chosen, restartNeeded, untilRestart, bu
 			: {key: 'restart', kind: 'restart', label: 'Restart the TV now to start using it', detail: `The TV reads this when it starts up. Until it restarts, it opens ${untilRestart}`});
 	}
 	choices.forEach((c) => rows.push({key: 'c:' + c.id, kind: 'choice', label: c.label, detail: c.detail, choice: c, current: c.id === chosen}));
+	const found = rows.findIndex((r) => r.key === focusKey);
+	const index = found === -1 ? 0 : found;
+	const focusAt = (i: number) => { const row = rows[clamp(i, 0, Math.max(0, rows.length - 1))]; if (row) setFocusKey(row.key); };
 
 	const activate = (i: number) => {
 		const row = rows[i];
@@ -63,17 +68,17 @@ export function PowerOnPicker ({choices, chosen, restartNeeded, untilRestart, bu
 	const handleKey = useCallback((key: NavKey): boolean => {
 		const last = Math.max(0, rows.length - 1);
 		switch (key) {
-			case 'up': setConfirm(false); setIndex((i) => clamp(i - 1, 0, last)); break;
-			case 'down': setConfirm(false); setIndex((i) => clamp(i + 1, 0, last)); break;
+			case 'up': setConfirm(false); focusAt(clamp(index - 1, 0, last)); break;
+			case 'down': setConfirm(false); focusAt(clamp(index + 1, 0, last)); break;
 			// the list of apps can be long: ← → jump a page
-			case 'left': setConfirm(false); setIndex((i) => clamp(i - VISIBLE_ROWS, 0, last)); break;
-			case 'right': setConfirm(false); setIndex((i) => clamp(i + VISIBLE_ROWS, 0, last)); break;
+			case 'left': setConfirm(false); focusAt(clamp(index - VISIBLE_ROWS, 0, last)); break;
+			case 'right': setConfirm(false); focusAt(clamp(index + VISIBLE_ROWS, 0, last)); break;
 			case 'enter': activate(index); break;
 			case 'back': if (confirm) setConfirm(false); else onClose(); break;
 			default: break;
 		}
 		return true;
-	}, [rows.length, index, confirm, busy, chosen, choices, restartNeeded]);   // eslint-disable-line react-hooks/exhaustive-deps
+	}, [rows.length, index, focusKey, confirm, busy, chosen, choices, restartNeeded]);   // eslint-disable-line react-hooks/exhaustive-deps
 
 	useKeys(handleKey, true);
 
@@ -94,8 +99,8 @@ export function PowerOnPicker ({choices, chosen, restartNeeded, untilRestart, bu
 							<div
 								key={row.key}
 								class={`picker__row${i === index ? ' picker__row--focused' : ''}${dim ? ' picker__row--disabled' : ''}`}
-								onMouseEnter={() => setIndex(i)}
-								onClick={() => { setIndex(i); activate(i); }}
+								onMouseEnter={() => { if (row.kind !== 'restart') setConfirm(false); focusAt(i); }}
+								onClick={() => { focusAt(i); activate(i); }}
 							>
 								<PickerIcon kind={row.kind === 'restart' ? 'power' : row.current ? 'pin' : row.choice && row.choice.id === '' ? 'default' : 'app'} />
 								<div class="picker__text">

@@ -8,8 +8,8 @@ import {log} from './log';
 import {isWebOS} from './luna';
 import type {InstallStep} from './homehookcmd';
 import {
-	READ_NEW_COMMAND, READ_STOCK_COMMAND, REMOVE_COMMAND, RESTART_COMMAND, STATUS_COMMAND, buildOverride, finishSteps,
-	parseStatus, powerOnMessage, writeSteps, type PowerOnResult, type PowerOnStatus
+	ABANDON_COMMAND, READ_NEW_COMMAND, READ_STOCK_COMMAND, REMOVE_COMMAND, RESTART_COMMAND, STATUS_COMMAND, buildOverride,
+	finishCommand, parseStatus, powerOnMessage, writeSteps, type PowerOnResult, type PowerOnStatus
 } from './poweroncmd';
 
 export type {PowerOnResult, PowerOnStatus};
@@ -33,33 +33,43 @@ function run (steps: InstallStep[]): Promise<void> {
 export interface PowerOnOutcome {
 	result: PowerOnResult;
 	detail: string;
+	/** what is on the TV afterwards (read again after a failure too), or null when it could not be read */
+	status?: PowerOnStatus | null;
 }
 
-/** Sends the power button to `appId` (from the next start). Every write is read back before it counts. */
+/** Sends the power button to `appId` (from the next start). The copy is written aside and read back before it is
+ *  moved into place in one step. A failure takes back only what this attempt wrote, so an earlier choice stays; the
+ *  outcome then carries what the TV has now. */
 export function setPowerOnApp (appId: string): Promise<PowerOnOutcome> {
 	if (!isWebOS()) return Promise.resolve({result: 'failed', detail: 'not running on a TV'});
 	return readPowerOn().then((status): PowerOnOutcome | Promise<PowerOnOutcome> => {
-		if (!status) return {result: 'failed', detail: 'the TV did not answer'};
-		if (!status.supported) return {result: 'unsupported', detail: ''};
-		if (status.foreign) return {result: 'foreign', detail: ''};
+		if (!status) return {result: 'failed', detail: 'the TV did not answer', status};
+		if (!status.supported) return {result: 'unsupported', detail: '', status};
+		if (status.foreign) return {result: 'foreign', detail: '', status};
 		return exec(READ_STOCK_COMMAND, 6000).then((stock) => {
-			const override = buildOverride(stock, appId);         // throws on a file this method does not know
+			let override: string;
+			try { override = buildOverride(stock, appId); }
+			catch { throw new Error("the TV's start-up file is not the kind Hearth knows"); }
 			return run(writeSteps(lf(guardSh), override, appId))
 				.then(() => exec(READ_NEW_COMMAND, 6000))
 				.then((written) => {
 					if (written.trim() !== override.trim()) throw new Error('the file did not read back the same');
-					return run(finishSteps(appId));
+					return exec(finishCommand(appId), 10000);
 				})
-				.then(() => readPowerOn())
+				.then((out) => {
+					if (!/finished/.test(out)) throw new Error('the last step did not finish');
+					return readPowerOn();
+				})
 				.then((now): PowerOnOutcome => {
-					if (!now || now.chosen !== appId) return {result: 'failed', detail: 'the TV did not keep it'};
+					if (!now || now.chosen !== appId) return {result: 'failed', detail: 'the TV did not keep it', status: now};
 					log(`Power-on app: ${appId} (from the next start)`);
-					return {result: 'applied', detail: ''};
+					return {result: 'applied', detail: '', status: now};
 				});
 		}).catch((error: Error): Promise<PowerOnOutcome> => {
 			log(`Power-on app: not set: ${why(error)}`);
-			// a failure part-way leaves nothing in place: the TV keeps doing what it did
-			return clearPowerOnApp().then(() => ({result: 'failed', detail: why(error)}));
+			return exec(ABANDON_COMMAND, 6000).catch(() => '')
+				.then(() => readPowerOn())
+				.then((now): PowerOnOutcome => ({result: 'failed', detail: why(error), status: now}));
 		});
 	});
 }
@@ -67,14 +77,19 @@ export function setPowerOnApp (appId: string): Promise<PowerOnOutcome> {
 /** Back to the TV's own behaviour (from the next start). */
 export function clearPowerOnApp (): Promise<PowerOnOutcome> {
 	if (!isWebOS()) return Promise.resolve({result: 'failed', detail: 'not running on a TV'});
-	return exec(REMOVE_COMMAND, 6000).then((out): PowerOnOutcome => {
-		if (/removed/.test(out)) { log('Power-on app: back to the TV\'s own behaviour (from the next start)'); return {result: 'removed', detail: ''}; }
-		return {result: 'foreign', detail: ''};
-	}, (error: Error): PowerOnOutcome => ({result: 'failed', detail: why(error)}));
+	return exec(REMOVE_COMMAND, 6000).then(
+		(out) => ({result: (/removed/.test(out) ? 'removed' : 'foreign') as PowerOnResult, detail: ''}),
+		(error: Error) => ({result: 'failed' as PowerOnResult, detail: why(error)})
+	).then((outcome) => readPowerOn().then((status): PowerOnOutcome => {
+		if (outcome.result === 'removed') log('Power-on app: back to the TV\'s own behaviour (from the next start)');
+		return {...outcome, status};
+	}));
 }
 
-/** Restarts the TV, so the setting starts working. */
-export function restartTv (): Promise<void> {
+/** Restarts the TV, so the setting starts working. Resolves false when the TV refused at once; a restart that is
+ *  under way usually never answers, which counts as started. */
+export function restartTv (): Promise<boolean> {
 	log('Power-on app: restarting the TV');
-	return exec(RESTART_COMMAND, 4000).then(() => undefined, () => undefined);   // the answer may never come
+	const began = Date.now();
+	return exec(RESTART_COMMAND, 5000).then(() => true, () => Date.now() - began >= 4500);
 }

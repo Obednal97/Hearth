@@ -261,6 +261,7 @@ If a rooted TV says "the TV refused the command", or the Homebrew Channel gives 
 - **It starts working after the TV restarts once** (a full restart, not standby): the TV reads the table only when it starts. Hearth offers *Restart the TV now*, and the row says *(after a restart)* until then.
 - Choosing *Live TV or the last input* turns it off: from the next restart the TV does exactly what it did before. If the chosen app is uninstalled, the TV opens its last input as usual.
 - Tested on webOS 4.5 (LG 65UM7100PLA, firmware 05.40.97). Elsewhere the row is greyed out unless the TV has the same start-up table.
+- **Turn it off before a firmware update** (an update usually removes root, and with it the start-up check that keeps the copy in line with LG's file).
 - Details, the start-up check, and how to undo it over SSH: [`src/poweron/README.md`](src/poweron/README.md).
 
 ## webOS 11: one extra step on rooted TVs

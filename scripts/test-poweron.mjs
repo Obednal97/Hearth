@@ -59,7 +59,8 @@ eq(h.parseStatus('Permission denied'), null, 'other output: null');
 // ---- messages ----
 eq(/restarts once/.test(h.powerOnMessage('applied', 'YouTube')) && /YouTube/.test(h.powerOnMessage('applied', 'YouTube')), true, 'saved: names the app and says a restart is needed');
 eq(/Live TV/.test(h.powerOnMessage('removed')), true, 'off: says what comes back');
-eq(/Nothing was changed/.test(h.powerOnMessage('failed', '', 'x')), true, 'a failure says nothing was changed');
+eq(/It is set to: YouTube/.test(h.powerOnMessage('failed', 'YouTube', 'x')), true, 'a failure says what is set now (never claims nothing changed)');
+eq(/left as it was/.test(h.powerOnMessage('failed', '', 'x')), true, 'and, when that is not known, that it was left as it was');
 eq(h.powerOnName(''), 'Live TV or the last input', 'the TV default has a name');
 eq(h.powerOnName('youtube.leanback.v4', 'YouTube'), 'YouTube', 'an app is named by its title');
 
@@ -80,9 +81,10 @@ const steps = h.writeSteps(guardSh, mine, 'youtube.leanback.v4');
 for (const step of steps) sh(step.command);
 eq(sh(h.READ_NEW_COMMAND), mine, 'the new file is written under a temporary name and reads back the same');
 eq(existsSync(root + '/prefs/bootd.json'), false, 'nothing is in the TV\'s place before it has been checked');
-const finish = h.finishSteps('youtube.leanback.v4');
-eq(finish[finish.length - 1].name, 'add the start-up link', 'the start-up link is added last, so a half-written check never runs');
-for (const step of finish) sh(step.command);
+const finish = h.finishCommand('youtube.leanback.v4');
+eq(/sync && ln -sf [^&]*45-launcher-poweron' && echo finished$/.test(finish), true, 'the start-up link is added last (after a sync), so a half-written check never runs');
+eq(sh(finish).trim(), 'finished', 'finishing reports itself done');
+eq(readFileSync(root + '/dir/override.md5', 'utf8').trim().split('\n').length, 1, 'only the new copy\'s sum is kept');
 eq(readFileSync(root + '/prefs/bootd.json', 'utf8'), mine, 'then moved into place');
 eq(readFileSync(root + '/dir/guard.sh', 'utf8'), guardSh, 'with the start-up check written as it is');
 eq(lstatSync(root + '/init.d/45-launcher-poweron').isSymbolicLink() && readlinkSync(root + '/init.d/45-launcher-poweron'), root + '/dir/guard.sh', 'and linked from the startup folder');
@@ -92,6 +94,34 @@ eq(h.needsRestart(read()), false, 'once the start-up check has noted it loaded, 
 eq(sh(h.REMOVE_COMMAND).trim(), 'removed', 'switching off removes it');
 eq(existsSync(root + '/prefs/bootd.json') || existsSync(root + '/dir') || existsSync(root + '/init.d/45-launcher-poweron'), false, 'and leaves nothing behind');
 eq(h.needsRestart(read()), true, 'until the restart the TV still has it loaded');
+
+// a change to another app, interrupted right after the new copy was moved into place: still Hearth's copy
+const second = h.buildOverride(stock, 'tld.my.customlauncher');
+for (const step of h.writeSteps(guardSh, second, 'tld.my.customlauncher')) sh(step.command);
+const parts = h.finishCommand('tld.my.customlauncher').split(' && ');
+const cut = parts.findIndex((p) => p.indexOf("mv -f '" + h.OVERRIDE_FILE + ".hearth-new'") === 0);
+sh(parts.slice(0, cut + 1).join(' && '));
+eq(read().foreign, false, 'a change interrupted after the move: the copy is still recognised as Hearth\'s');
+eq(read().chosen, 'tld.my.customlauncher', 'and names the new app');
+eq(sh(h.REMOVE_COMMAND).trim(), 'removed', 'so it can still be switched off from Hearth');
+
+// a failed change leaves the earlier choice in place
+for (const step of h.writeSteps(guardSh, mine, 'youtube.leanback.v4')) sh(step.command);
+sh(h.finishCommand('youtube.leanback.v4'));
+for (const step of h.writeSteps(guardSh, second, 'tld.my.customlauncher')) sh(step.command);
+sh(h.ABANDON_COMMAND);
+eq(read().chosen, 'youtube.leanback.v4', 'a change abandoned before the move keeps the earlier choice');
+eq(existsSync(root + '/prefs/bootd.json.hearth-new'), false, 'and removes its temporary copy');
+eq(existsSync(root + '/init.d/45-launcher-poweron'), true, 'and keeps the start-up check of the earlier choice');
+sh(h.REMOVE_COMMAND);
+for (const step of h.writeSteps(guardSh, mine, 'youtube.leanback.v4')) sh(step.command);
+sh(h.ABANDON_COMMAND);
+eq(existsSync(root + '/dir') || existsSync(root + '/prefs/bootd.json'), false, 'a first change abandoned leaves nothing behind');
+
+// an empty copy (power cut right after writing) is cleaned up, never left as someone else's
+writeFileSync(root + '/prefs/bootd.json', '');
+eq(read().foreign, false, 'an empty copy is not taken for someone else\'s');
+eq(sh(h.REMOVE_COMMAND).trim(), 'removed', 'and switching off removes it');
 
 writeFileSync(root + '/prefs/bootd.json', '{"someone":"else"}');
 eq(read().foreign, true, 'someone else\'s start-up file is recognised');
