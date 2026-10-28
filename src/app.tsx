@@ -530,20 +530,25 @@ export function App () {
 	const onPowerOnChoose = useCallback((id: string) => {
 		setPowerOnBusy(true);
 		showToast('Saving…');
-		(id ? setPowerOnApp(id) : clearPowerOnApp()).then(({result, detail}) => readPowerOn().then((powerOn) => {
+		(id ? setPowerOnApp(id) : clearPowerOnApp()).then(({result, detail, status}) => {
 			setPowerOnBusy(false);
-			setSystemInfo((previous) => ({...previous, powerOn}));
+			setSystemInfo((previous) => ({...previous, powerOn: status}));
 			const ok = result === 'applied' || result === 'removed';
-			if (ok) updateConfig({...config, powerOnApp: id});
-			// switching back to what the running TV already does needs no restart
-			const restart = needsRestart(powerOn);
-			showToast(ok && !restart ? `Done: the TV opens ${powerOnName(id, powerOnTitle(id))} when you turn it on` : powerOnMessage(result, powerOnTitle(id), detail), ok ? 'info' : 'error');
-		}));
-	}, [config, showToast, powerOnTitle]);
+			// the saved choice follows what the TV has now (a failed change leaves the earlier one in place)
+			const now = status ? status.chosen : (ok ? id : null);
+			if (now !== null) setConfig((c) => { const next = {...c, powerOnApp: now}; saveConfig(next); return next; });
+			if (ok && !needsRestart(status)) showToast(`Done: the TV opens ${powerOnName(id, powerOnTitle(id))} when you turn it on`);
+			else if (ok) showToast(powerOnMessage(result, powerOnTitle(id)));
+			else showToast(powerOnMessage(result, status ? powerOnName(status.chosen, powerOnTitle(status.chosen)) : '', detail), 'error');
+		}).catch((error: Error) => {
+			setPowerOnBusy(false);
+			showToast(powerOnMessage('failed', '', error && error.message ? error.message : ''), 'error');
+		});
+	}, [showToast, powerOnTitle]);
 
 	const onPowerOnRestart = useCallback(() => {
 		showToast('Restarting the TV…');
-		restartTv();
+		restartTv().then((started) => { if (!started) showToast(`The TV did not restart${whySuffix()}. Restart it from its own settings, or unplug it for a minute`, 'error'); });
 	}, [showToast]);
 
 	const tabs: SettingsTab[] = useMemo(() => [

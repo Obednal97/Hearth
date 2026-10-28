@@ -24,10 +24,17 @@ LOG="${LOG:-/tmp/launcher-poweron.log}"
 
 log () { echo "$(date '+%H:%M:%S') poweron: $*" >> "$LOG"; }
 sum () { md5sum "$1" 2>/dev/null | cut -d ' ' -f 1; }
-ours () { [ -f "$OVERRIDE" ] && [ -n "$(cat "$DIR/override.md5" 2>/dev/null)" ] && [ "$(sum "$OVERRIDE")" = "$(cat "$DIR/override.md5")" ]; }
+# the copy is one Hearth wrote: its sum is noted (two are noted while a change is being finished)
+ours () { [ -f "$OVERRIDE" ] && [ -s "$OVERRIDE" ] && grep -qx "$(sum "$OVERRIDE")" "$DIR/override.md5" 2>/dev/null; }
 leave () { rm -f "$LINK"; rm -rf "$DIR"; }
 
 check () {
+    # an empty copy (a power cut right after it was written) is never valid: remove it whoever wrote it
+    if [ -f "$OVERRIDE" ] && [ ! -s "$OVERRIDE" ]; then
+        rm -f "$OVERRIDE"; echo stock > "$LOADED"; leave
+        log "the start-up file was empty: removed"
+        echo "removed: empty"; return 0
+    fi
     # what bootd read a moment ago: the copy is ours and in place, or not
     app=$(cat "$DIR/app" 2>/dev/null)
     case "$app" in ""|*[!A-Za-z0-9._-]*) app="" ;; esac
@@ -47,6 +54,7 @@ check () {
         log "the TV's own start-up file changed (software update?): Hearth's copy removed, choose the app again in Hearth"
         echo "removed: stock changed"; return 0
     fi
+    log "in place: the TV opens $app when it is switched on"
     echo "in place: $app"
 }
 

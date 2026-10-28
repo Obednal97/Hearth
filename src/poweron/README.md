@@ -44,6 +44,15 @@ still needed. It also removes the file if Hearth was uninstalled, or if a softwa
 old copy never hides the new one). If the file was changed by someone else, it is left alone. A file Hearth did not
 write is never overwritten or removed.
 
+- **Before a firmware update, turn it off** (and restart once). An update usually removes root, and then the start-up
+  check no longer runs, so an old copy of LG's file could keep hiding the new one. If that happens, the undo steps below
+  need SSH; without root, a factory reset clears `/var/luna/preferences`.
+- The *(after a restart)* label relies on the start-up check running (the Homebrew Channel's startup folder). If that
+  is switched off or in fail-safe, the label can stay although the TV already uses the setting.
+- A change is written aside, read back, and moved into place in one step with a `sync`. If it fails, only that
+  attempt's files are removed, so an earlier choice stays. An empty file (a power cut at the wrong moment) is removed
+  at the next start.
+
 Tested on an LG 65UM7100PLA, webOS 4.5 (4.10.2, firmware 05.40.97). Other webOS versions: the row is greyed out unless
 `bootd` there reads `/var/luna/preferences/bootd.json` and LG's file has the table (both checked on the TV).
 
@@ -56,5 +65,5 @@ reboot
 ```
 
 To check what is in place: `grep -A6 firstAppByPowerOnReason /var/luna/preferences/bootd.json`, and after a start
-`cat /tmp/launcher-poweron.log`. The reason the TV was last switched on:
+`cat /tmp/launcher-poweron.log` (one line per start: in place, or what it removed and why). The reason the TV was last switched on:
 `luna-send -n 1 luna://com.webos.service.tvpower/power/getPowerOnReason '{}'`.

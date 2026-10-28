@@ -53,6 +53,15 @@ reset; echo "x'; reboot" > "$T/dir/app"
 guard check >/dev/null
 check "a noted app that is not an app id is not used" "$(cat "$T/loaded")" "stock"
 
+reset; : > "$T/prefs/bootd.json"
+check "an empty copy (power cut) is removed" "$(guard check)" "removed: empty"
+check "it is gone" "$(there "$T/prefs/bootd.json")" "no"
+check "nothing loaded" "$(cat "$T/loaded")" "stock"
+
+reset; { echo 0123456789abcdef0123456789abcdef; sum "$T/prefs/bootd.json"; } > "$T/dir/override.md5"
+check "two sums noted (a change being finished): still Hearth's copy" "$(guard check)" "in place: youtube.leanback.v4"
+check "and the log says it is in place" "$(grep -c 'in place' "$T/log")" "1"
+
 reset
 check "run from the startup folder, it prints nothing" "$(guard)" ""
 check "and still notes what was loaded" "$(cat "$T/loaded")" "youtube.leanback.v4"
