@@ -120,6 +120,9 @@ export interface UserConfig {
 	remap: RemapConfig;
 	/** which remote "Reassign remote buttons" draws ('list': the plain list; '': not chosen yet, it asks) */
 	remoteModel: RemoteModel | 'list' | '';
+	/** "When the TV turns on, open…": the app chosen last ('' = the TV's default). The TV's own files say what is in
+	 *  place; this is only shown until they have been read. See src/poweron */
+	powerOnApp: string;
 	theme: ThemeName;
 	/** a built-in background (see backgrounds.ts); 'theme' is the theme's own */
 	background: string;
@@ -219,6 +222,7 @@ export const DEFAULT_CONFIG: UserConfig = {
 	homeAppPrevious: '',
 	remap: DEFAULT_REMAP,
 	remoteModel: '',
+	powerOnApp: '',
 	theme: 'black',
 	background: 'theme',
 	iconScale: RANGES.iconScale.def,
@@ -292,6 +296,7 @@ export function loadConfig (): UserConfig {
 			homeAppPrevious: typeof parsed.homeAppPrevious === 'string' && /^[A-Za-z0-9._-]+$/.test(parsed.homeAppPrevious) ? parsed.homeAppPrevious : '',
 			remap: cleanRemap(parsed.remap),
 			remoteModel: parsed.remoteModel === 'list' || REMOTES.some((r) => r.model === parsed.remoteModel) ? (parsed.remoteModel as RemoteModel | 'list') : '',
+			powerOnApp: typeof parsed.powerOnApp === 'string' && /^[A-Za-z0-9._-]+$/.test(parsed.powerOnApp) ? parsed.powerOnApp : '',
 			theme: THEME_IDS.indexOf(parsed.theme as ThemeName) !== -1 ? (parsed.theme as ThemeName) : 'black',
 			background: BACKGROUND_IDS.indexOf(parsed.background as string) !== -1 ? (parsed.background as string) : 'theme',
 			iconScale: ranged(parsed.iconScale, 'iconScale'),

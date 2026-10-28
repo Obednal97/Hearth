@@ -13,6 +13,7 @@ PLEX_CLIENTS.push('com.bednal.plexlite');
 import {CONTINUE_CARD} from './components/ContinueRow';
 import {cachedPreviews, forgetPreviews, openPreview, readPreviews, type PreviewItem, type PreviewRow} from './lib/previews';
 import {RemoteButtons, type RemapTarget} from './screens/RemoteButtons';
+import {PowerOnPicker, type PowerOnChoice} from './screens/PowerOnPicker';
 import {iconFromFile} from './lib/customicon';
 import {log, logLines} from './lib/log';
 import {debugPages, reportText} from './lib/debuginfo';
@@ -36,6 +37,8 @@ import {applyHomeHook, getHookStatus, hookMessage, installHomeHook, logLine, mar
 import {capturedButton, checkRemap, detectRemote, installRemap, readInputHook, remapMessage, removeRemap, saveRemap, setCapture} from './lib/remap';
 import type {RemoteModel} from './lib/remotes';
 import {buttonLabel, setButton, type RemapAction, type RemapConfig} from './lib/remapcmd';
+import {clearPowerOnApp, powerOnMessage, readPowerOn, restartTv, setPowerOnApp} from './lib/poweron';
+import {needsRestart, powerOnName} from './lib/poweroncmd';
 import {getTakeoverStatus, installTakeover, reapplyTakeover, removeTakeover, stockTakeover, takeoverMessage} from './lib/takeover';
 import {homeAppMessage, readHomeApp, restoreHomeApp, setHearthAsHome} from './lib/homeapp';
 import {applyPref, disabledReason, findPref, optionsFor, resetLook, type Press, type SystemInfo} from './lib/prefs';
@@ -59,7 +62,7 @@ import {PROBE_TESTS, RUN_ALL_ID, bad as probeBad, probeOptions, runAll, withLimi
 import {fetchWeather} from './lib/weathernet';
 import {FRESH_MS, isFresh, readWeatherCache, usableCached, weatherView, writeWeatherCache, type City, type WeatherData} from './lib/weather';
 
-type Screen = 'home' | 'settings' | 'picker' | 'cities' | 'source' | 'iconpicker' | 'plexlink' | 'remote';
+type Screen = 'home' | 'settings' | 'picker' | 'cities' | 'source' | 'iconpicker' | 'plexlink' | 'remote' | 'poweron';
 
 const TAB = {apps: 'apps', sources: 'sources', look: 'look', clock: 'clock', weather: 'weather', wallpaper: 'wallpaper', options: 'options', debug: 'debug', tests: 'tests'} as const;
 const MISC = {lgHome: 'lg-home', settings: 'settings', system: 'system-settings'} as const;
@@ -112,6 +115,7 @@ export function App () {
 	const [remoteSeen, setRemoteSeen] = useState<RemoteModel | null>(null);       // the remote the TV's log names last
 	const [hookCodes, setHookCodes] = useState<number[]>([]);                    // buttons LG Input Hook has bindings for
 	const remapChecked = useRef(0);
+	const [powerOnBusy, setPowerOnBusy] = useState(false);                                 // "When the TV turns on" is being changed
 	const tvFormat = useTimeFormat();
 	const [plexServer, setPlexServer] = useState<string | null>(plexServerName);
 	const [continueItems, setContinueItems] = useState<ContinueItem[]>(() => (config.continueWatching ? cachedContinue() : []));
@@ -386,8 +390,8 @@ export function App () {
 				log(root === 'yes' ? 'Root check: the Homebrew Channel answered' : `Root check: not available (${rootDetail || 'no answer'})`);
 				if (!live) return undefined;
 				if (root === 'yes') readHomebrewVersion().then((homebrew) => { if (live && homebrew) setVersions((p) => ({...p, homebrew})); });
-				if (root === 'no') { setSystemInfo({homeApp: null, homeHook: null, logo: null, takeover: null, root, rootDetail}); return undefined; }
-				return Promise.all([getHookStatus(), getLogo(), getTakeoverStatus(), readHomeApp()]).then(([homeHook, logo, takeover, homeApp]) => { if (live) setSystemInfo({homeHook, logo, takeover, homeApp, root, rootDetail}); });
+				if (root === 'no') { setSystemInfo({homeApp: null, homeHook: null, logo: null, takeover: null, powerOn: null, root, rootDetail}); return undefined; }
+				return Promise.all([getHookStatus(), getLogo(), getTakeoverStatus(), readHomeApp(), readPowerOn()]).then(([homeHook, logo, takeover, homeApp, powerOn]) => { if (live) setSystemInfo({homeHook, logo, takeover, homeApp, powerOn, root, rootDetail}); });
 			});
 			return () => { live = false; };
 		}
@@ -579,6 +583,46 @@ export function App () {
 		readStats().then((st) => { statsRef.current = st; setDebugTick((n) => n + 1); save(); });
 	}, [config, versions]);                                                  // eslint-disable-line react-hooks/exhaustive-deps
 
+	// ----- When the TV turns on, open… -----
+	// The choices: the TV's own default, Hearth, then every app by name.
+	const powerOnChoices: PowerOnChoice[] = useMemo(() => {
+		const list: PowerOnChoice[] = [
+			{id: '', label: "Live TV or the last input (the TV's default)", detail: 'What the TV does on its own: the input you used last, usually Live TV'},
+			{id: APP_ID, label: 'Hearth', detail: 'This home screen'}
+		];
+		apps.filter((a) => a.id !== APP_ID).slice().sort((a, b) => a.title.localeCompare(b.title))
+			.forEach((a) => list.push({id: a.id, label: a.title, detail: 'App'}));
+		return list;
+	}, [apps]);
+	const powerOnTitle = useCallback((id: string): string => {
+		if (!id) return '';
+		const choice = powerOnChoices.filter((c) => c.id === id)[0];
+		return choice ? choice.label : id;
+	}, [powerOnChoices]);
+	const powerOnNames = useMemo(() => {
+		const status = systemInfo.powerOn;
+		return {chosen: powerOnTitle(status ? status.chosen : config.powerOnApp), loaded: powerOnTitle(status ? status.loaded : '')};
+	}, [systemInfo.powerOn, config.powerOnApp, powerOnTitle]);
+
+	const onPowerOnChoose = useCallback((id: string) => {
+		setPowerOnBusy(true);
+		showToast('Saving…');
+		(id ? setPowerOnApp(id) : clearPowerOnApp()).then(({result, detail}) => readPowerOn().then((powerOn) => {
+			setPowerOnBusy(false);
+			setSystemInfo((previous) => ({...previous, powerOn}));
+			const ok = result === 'applied' || result === 'removed';
+			if (ok) updateConfig({...config, powerOnApp: id});
+			// switching back to what the running TV already does needs no restart
+			const restart = needsRestart(powerOn);
+			showToast(ok && !restart ? `Done: the TV opens ${powerOnName(id, powerOnTitle(id))} when you turn it on` : powerOnMessage(result, powerOnTitle(id), detail), ok ? 'info' : 'error');
+		}));
+	}, [config, showToast, powerOnTitle]);
+
+	const onPowerOnRestart = useCallback(() => {
+		showToast('Restarting the TV…');
+		restartTv();
+	}, [showToast]);
+
 	const tabs: SettingsTab[] = useMemo(() => [
 		{id: TAB.apps, label: 'Apps', noun: 'apps', refresh: true, items: orderTiles(apps.map((a) => appTile(a, config.appEdits)), (t) => t.key, config.appIds), shown: shownApps.map((a) => appTile(a, config.appEdits)), edit: true},
 		{id: TAB.sources, label: 'Sources', noun: 'sources', items: inputs.map((i) => inputTile(i, config.sourceEdits)), shown: shownInputs.map((i) => inputTile(i, config.sourceEdits)), edit: true},
@@ -586,10 +630,10 @@ export function App () {
 		{id: TAB.clock, label: 'Clock', noun: '', items: [], shown: [], options: optionsFor('clock', config)},
 		...(WEATHER_ENABLED ? [{id: TAB.weather, label: 'Weather', noun: '', items: [], shown: [], options: optionsFor('weather', config)}] : []),
 		{id: TAB.wallpaper, label: 'Wallpaper', noun: '', items: [], shown: [], options: optionsFor('wallpaper', config)},
-		{id: TAB.options, label: 'Options', noun: '', items: [], shown: [], options: optionsFor('options', config, {...systemInfo, tvInput, plexServer})},
+		{id: TAB.options, label: 'Options', noun: '', items: [], shown: [], options: optionsFor('options', config, {...systemInfo, tvInput, plexServer, powerOnNames})},
 		...(config.showDebug ? [{id: TAB.debug, label: 'Debug', noun: '', items: [], shown: [], pages: debugPagesNow}] : []),
 		...(PROBE_ENABLED && config.showDebug ? [{id: TAB.tests, label: 'Tests', noun: '', items: [], shown: [], options: probeOptions(probe)}] : [])
-	], [apps, inputs, shownApps, shownInputs, config, systemInfo, tvInput, plexServer, probe, debugPagesNow]);
+	], [apps, inputs, shownApps, shownInputs, config, systemInfo, tvInput, plexServer, powerOnNames, probe, debugPagesNow]);
 
 	const editedSource = editKey ? inputs.filter((i) => i.appId === editKey)[0] : undefined;
 	const editedApp = editKey && !editedSource ? apps.filter((a) => a.id === editKey)[0] : undefined;
@@ -682,6 +726,10 @@ export function App () {
 				} else setScreen('plexlink');
 			}
 			else if (optionId === 'remap') setScreen('remote');
+			else if (optionId === 'powerOnApp') {
+				if (systemInfo.powerOn && systemInfo.powerOn.foreign) showToast(powerOnMessage('foreign'), 'error');
+				else setScreen('poweron');
+			}
 			else if (optionId === 'resetLook') { updateConfig(resetLook(config)); showToast('Look and clock reset'); }
 			else if (optionId === 'takeover') {
 				const refresh = () => getTakeoverStatus().then((takeover) => setSystemInfo((previous) => ({...previous, takeover})));
@@ -990,6 +1038,18 @@ export function App () {
 			{screen === 'remote' && <RemoteButtons model={config.remoteModel} detected={remoteSeen} inputHook={hookCodes} onModel={(remoteModel) => updateConfig({...config, remoteModel})} remap={config.remap} targets={remapTargets} captured={captured} busy={remapBusy} onSwitch={onRemapSwitch} onAssign={onRemapAssign} onCapture={onRemapCapture} onClose={() => setScreen('settings')} />}
 			{screen === 'picker' && <Picker onChoose={onChooseWallpaper} onClose={() => setScreen('settings')} />}
 			{screen === 'plexlink' && <PlexLink onDone={onPlexSignedIn} onClose={() => setScreen('settings')} />}
+			{screen === 'poweron' && (
+				<PowerOnPicker
+					choices={powerOnChoices}
+					chosen={systemInfo.powerOn ? systemInfo.powerOn.chosen : config.powerOnApp}
+					restartNeeded={needsRestart(systemInfo.powerOn)}
+					untilRestart={systemInfo.powerOn ? powerOnName(systemInfo.powerOn.loaded, powerOnNames.loaded) : powerOnName('')}
+					busy={powerOnBusy}
+					onChoose={onPowerOnChoose}
+					onRestart={onPowerOnRestart}
+					onClose={() => setScreen('settings')}
+				/>
+			)}
 			{WEATHER_ENABLED && screen === 'cities' && <CityPicker allowShell={isWebOS()} onChoose={onChooseCity} onClose={() => setScreen('settings')} />}
 			<Toast message={toast} />
 		</>
