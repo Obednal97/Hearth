@@ -1,0 +1,57 @@
+#!/bin/sh
+# Start-up check for "When the TV turns on, open..." (Settings, Options). Written to the TV by the launcher (rooted TVs
+# only); nothing to copy by hand. See README.md in this folder.
+#
+# That setting writes /var/luna/preferences/bootd.json, a copy of the TV's /etc/palm/bootd.json that sends the power
+# button to the chosen app. The TV's boot daemon reads it when it starts. At each start this script:
+#   1. notes in $LOADED which app bootd has just loaded ("stock" for none), so Hearth can say when a restart is needed;
+#   2. if Hearth is uninstalled, removes the copy (the TV is back to its own behaviour from the next start);
+#   3. if a software update changed the TV's own file, removes the copy too, so an old copy never hides the new file;
+#   4. if the copy was changed or removed by someone else, leaves it and removes only itself.
+# Nothing waits and nothing keeps running.
+#
+# Usage: sh guard.sh [check]
+#   (no argument, as run from the startup folder) the check.   check: the same, printing what it did.
+
+DIR="${DIR:-/media/developer/launcher-poweron}"
+LINK="${LINK:-/var/lib/webosbrew/init.d/45-launcher-poweron}"
+OVERRIDE="${OVERRIDE:-/var/luna/preferences/bootd.json}"
+STOCK="${STOCK:-/etc/palm/bootd.json}"
+LOADED="${LOADED:-/tmp/launcher-poweron.loaded}"
+LAUNCHER_ID="${LAUNCHER_ID:-tld.my.customlauncher}"
+LAUNCHER="${LAUNCHER:-/media/developer/apps/usr/palm/applications/$LAUNCHER_ID}"
+LOG="${LOG:-/tmp/launcher-poweron.log}"
+
+log () { echo "$(date '+%H:%M:%S') poweron: $*" >> "$LOG"; }
+sum () { md5sum "$1" 2>/dev/null | cut -d ' ' -f 1; }
+ours () { [ -f "$OVERRIDE" ] && [ -n "$(cat "$DIR/override.md5" 2>/dev/null)" ] && [ "$(sum "$OVERRIDE")" = "$(cat "$DIR/override.md5")" ]; }
+leave () { rm -f "$LINK"; rm -rf "$DIR"; }
+
+check () {
+    # what bootd read a moment ago: the copy is ours and in place, or not
+    app=$(cat "$DIR/app" 2>/dev/null)
+    case "$app" in ""|*[!A-Za-z0-9._-]*) app="" ;; esac
+    if ours && [ -n "$app" ]; then echo "$app" > "$LOADED"; else echo stock > "$LOADED"; fi
+
+    if ! ours; then
+        log "the start-up file is not Hearth's any more: left alone"
+        leave; echo "not ours"; return 0
+    fi
+    if [ ! -f "$LAUNCHER/appinfo.json" ]; then
+        rm -f "$OVERRIDE"; leave
+        log "Hearth is not installed: the TV opens its last input again from the next start"
+        echo "removed: no launcher"; return 0
+    fi
+    if [ "$(sum "$STOCK")" != "$(cat "$DIR/stock.md5" 2>/dev/null)" ]; then
+        rm -f "$OVERRIDE"; leave
+        log "the TV's own start-up file changed (software update?): Hearth's copy removed, choose the app again in Hearth"
+        echo "removed: stock changed"; return 0
+    fi
+    echo "in place: $app"
+}
+
+case "${1:-boot}" in
+    check) check ;;
+    boot) check >/dev/null 2>&1 ;;
+    *) echo "usage: guard.sh [check]"; exit 1 ;;
+esac
