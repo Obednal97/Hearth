@@ -70,7 +70,7 @@ eq(h.parseStatus('Permission denied'), null, 'other output: null');
 eq(/restarts once/.test(h.powerOnMessage('applied', 'YouTube')) && /YouTube/.test(h.powerOnMessage('applied', 'YouTube')), true, 'saved: names the app and says a restart is needed');
 eq(/Live TV/.test(h.powerOnMessage('removed')), true, 'off: says what comes back');
 eq(/It is set to: YouTube/.test(h.powerOnMessage('failed', 'YouTube', 'x')), true, 'a failure says what is set now (never claims nothing changed)');
-eq(/left as it was/.test(h.powerOnMessage('failed', '', 'x')), true, 'and, when that is not known, that it was left as it was');
+eq(/couldn't check/.test(h.powerOnMessage('failed', '', 'x')), true, 'and, when that is not known, says so (no guess)');
 eq(h.powerOnName(''), 'Live TV or the last input', 'the TV default has a name');
 eq(h.powerOnName('youtube.leanback.v4', 'YouTube'), 'YouTube', 'an app is named by its title');
 
@@ -109,7 +109,9 @@ eq(sh(h.REMOVE_COMMAND).trim(), 'removed', 'switching off removes it');
 eq(existsSync(root + '/prefs/bootd.json') || existsSync(root + '/dir') || existsSync(root + '/init.d/45-launcher-poweron'), false, 'and leaves nothing behind');
 eq(h.needsRestart(read()), true, 'until the restart the TV still has it loaded');
 
-// a change to another app, interrupted right after the new copy was moved into place: still Hearth's copy
+// a change to another app while YouTube is in place, interrupted right after the new copy was moved: still Hearth's copy
+for (const step of h.writeSteps(guardSh, mine, 'youtube.leanback.v4')) sh(step.command);
+sh(h.finishCommand('youtube.leanback.v4'));
 const second = h.buildOverride(stock, 'tld.my.customlauncher');
 for (const step of h.writeSteps(guardSh, second, 'tld.my.customlauncher')) sh(step.command);
 const parts = h.finishCommand('tld.my.customlauncher').split(' && ');
@@ -117,14 +119,18 @@ const cut = parts.findIndex((p) => p.indexOf("mv -f '" + h.OVERRIDE_FILE + ".hea
 sh(parts.slice(0, cut + 1).join(' && '));
 eq(read().foreign, false, 'a change interrupted after the move: the copy is still recognised as Hearth\'s');
 eq(read().chosen, 'tld.my.customlauncher', 'and names the new app');
+eq(readFileSync(root + '/dir/override.md5', 'utf8').trim().split('\n').length, 2, '(both sums are noted at that point)');
 eq(sh(h.REMOVE_COMMAND).trim(), 'removed', 'so it can still be switched off from Hearth');
 
 // a failed change leaves the earlier choice in place
 for (const step of h.writeSteps(guardSh, mine, 'youtube.leanback.v4')) sh(step.command);
 sh(h.finishCommand('youtube.leanback.v4'));
 for (const step of h.writeSteps(guardSh, second, 'tld.my.customlauncher')) sh(step.command);
+writeFileSync(root + '/dir/guard.sh.hearth-new', '#!/bin/sh\nif true; then\n');      // a half-written check
 sh(h.ABANDON_COMMAND);
 eq(read().chosen, 'youtube.leanback.v4', 'a change abandoned before the move keeps the earlier choice');
+eq(readFileSync(root + '/dir/guard.sh', 'utf8'), guardSh, 'and the start-up check in use is never half-written (the new one is written aside)');
+eq(existsSync(root + '/dir/guard.sh.hearth-new'), false, 'the half-written one is removed');
 eq(existsSync(root + '/prefs/bootd.json.hearth-new'), false, 'and removes its temporary copy');
 eq(existsSync(root + '/init.d/45-launcher-poweron'), true, 'and keeps the start-up check of the earlier choice');
 sh(h.REMOVE_COMMAND);

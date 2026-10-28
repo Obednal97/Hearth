@@ -36,10 +36,12 @@ check () {
         log "the start-up file was empty: removed"
         echo "removed: empty"; return 0
     fi
-    # what bootd read a moment ago: the copy is ours and in place, or not
-    app=$(cat "$DIR/app" 2>/dev/null)
+    # what bootd read a moment ago, taken from the copy itself: the power button's app, and whether network wake-ups go
+    # to it too (Hearth writes one key per line)
+    app=$(sed -n 's/.*"remoteKey": *"\([^"]*\)".*/\1/p' "$OVERRIDE" 2>/dev/null | head -n 1)
     case "$app" in ""|*[!A-Za-z0-9._-]*) app="" ;; esac
-    extra=""; [ "$(cat "$DIR/network" 2>/dev/null)" = yes ] && extra="+network"
+    net=$(sed -n 's/.*"wakeOnWiFi": *"\([^"]*\)".*/\1/p' "$OVERRIDE" 2>/dev/null | head -n 1)
+    extra=""; [ -n "$app" ] && [ "$net" = "$app" ] && extra="+network"
     if ours && [ -n "$app" ]; then echo "$app$extra" > "$LOADED"; else echo stock > "$LOADED"; fi
 
     if ! ours; then

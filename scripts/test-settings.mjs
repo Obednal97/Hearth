@@ -115,7 +115,7 @@ eq(po({powerOn: st('', '')}), 'TV default', 'nothing chosen: the TV default');
 eq(po({powerOn: st('youtube.leanback.v4', 'youtube.leanback.v4'), powerOnNames: {chosen: 'YouTube'}}), 'YouTube', 'an app chosen and loaded: its name');
 eq(po({powerOn: st('youtube.leanback.v4', ''), powerOnNames: {chosen: 'YouTube'}}), 'YouTube (after a restart)', 'chosen but not loaded yet: after a restart');
 eq(po({powerOn: st('', 'youtube.leanback.v4')}), 'TV default (after a restart)', 'switched off but still loaded: after a restart');
-eq(po({powerOn: st('youtube.leanback.v4', 'youtube.leanback.v4', {network: true, loadedNetwork: true}), powerOnNames: {chosen: 'YouTube'}}), 'YouTube (also network)', 'network wake-ups too: said so');
+eq(po({powerOn: st('youtube.leanback.v4', 'youtube.leanback.v4', {network: true, loadedNetwork: true}), powerOnNames: {chosen: 'YouTube'}}), 'YouTube + network', 'network wake-ups too: said so');
 eq(po({powerOn: st('', '', {supported: false})}), 'Not on this TV', 'a TV whose software lacks it: Not on this TV');
 eq(po({powerOn: st('', '', {foreign: true})}), 'Set by another tool', 'someone else\'s start-up file: said so');
 const poDis = (info) => p.optionsFor('options', c0, info).find((o) => o.id === 'powerOnApp').disabled;

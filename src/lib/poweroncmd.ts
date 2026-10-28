@@ -160,8 +160,9 @@ export function writeSteps (guardSh: string, override: string, appId: string): I
 	};
 	return [
 		{name: 'create the folder', command: `mkdir -p '${POWER_ON_DIR}'`},
-		...write('guard.sh', `${POWER_ON_DIR}/guard.sh`, guardSh),
-		{name: 'make the check runnable', command: `chmod +x '${POWER_ON_DIR}/guard.sh'`},
+		// written aside too: the start-up link may already point at the old one
+		...write('guard.sh', `${POWER_ON_DIR}/guard.sh.hearth-new`, guardSh),
+		{name: 'make the check runnable', command: `chmod +x '${POWER_ON_DIR}/guard.sh.hearth-new'`},
 		...write('the start-up file', NEW_FILE, override)
 	];
 }
@@ -177,12 +178,16 @@ export function finishCommand (appId: string, network = false): string {
 		`[ -n "$new" ]`,
 		`{ cat '${d}/override.md5' 2>/dev/null; echo "$new"; } > '${d}/override.md5.tmp'`,
 		`mv -f '${d}/override.md5.tmp' '${d}/override.md5'`,
+		// the notes and the copy are on different filesystems: the notes (and the new copy's contents) reach storage
+		// before the copy is moved, so a power cut never leaves Hearth's copy without its sum
+		'sync',
 		`mv -f '${NEW_FILE}' '${OVERRIDE_FILE}'`,
 		`echo "$new" > '${d}/override.md5.tmp'`,
 		`mv -f '${d}/override.md5.tmp' '${d}/override.md5'`,
 		`md5sum '${BOOTD_FILE}' | cut -d ' ' -f 1 > '${d}/stock.md5'`,
 		`printf '%s\n' '${appId}' > '${d}/app'`,
 		`echo '${network ? 'yes' : 'no'}' > '${d}/network'`,
+		`mv -f '${d}/guard.sh.hearth-new' '${d}/guard.sh'`,
 		'sync',
 		`ln -sf '${d}/guard.sh' '${POWER_ON_LINK}'`,
 		'echo finished'
@@ -191,7 +196,7 @@ export function finishCommand (appId: string, network = false): string {
 
 /** After a failed change: removes what that attempt wrote (the temporary copy; the folder too when no copy of Hearth's
  *  is in place). Whatever was in place before stays. */
-export const ABANDON_COMMAND = `rm -f '${NEW_FILE}' '${POWER_ON_DIR}/override.md5.tmp'; if ! ${OURS}; then if [ ! -f '${OVERRIDE_FILE}' ]; then rm -f '${POWER_ON_LINK}'; rm -rf '${POWER_ON_DIR}'; fi; fi; true`;
+export const ABANDON_COMMAND = `rm -f '${NEW_FILE}' '${POWER_ON_DIR}/override.md5.tmp' '${POWER_ON_DIR}/guard.sh.hearth-new'; if ! ${OURS}; then if [ ! -f '${OVERRIDE_FILE}' ]; then rm -f '${POWER_ON_LINK}'; rm -rf '${POWER_ON_DIR}'; fi; fi; true`;
 
 /** Back to the TV's own behaviour (from the next start): Hearth's copy and the check are removed. A copy Hearth did not
  *  write is left alone. */
@@ -221,6 +226,6 @@ export function powerOnMessage (result: PowerOnResult, name = '', detail = ''): 
 		case 'removed': return 'Turned off. After the TV restarts once, it opens Live TV or the last input again';
 		case 'unsupported': return "This TV's software has no power-on setting Hearth can use, so nothing was changed";
 		case 'foreign': return `Another start-up file is already in place (${OVERRIDE_FILE}), so Hearth left it alone`;
-		default: return `Couldn't change the power-on app${detail ? ' (' + detail + ')' : ''}. ${name ? `It is set to: ${name}` : 'It was left as it was'}`;
+		default: return `Couldn't change the power-on app${detail ? ' (' + detail + ')' : ''}. ${name ? `It is set to: ${name}` : "Hearth couldn't check what is set now"}`;
 	}
 }

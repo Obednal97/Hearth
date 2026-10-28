@@ -1,4 +1,4 @@
-import {useCallback, useState} from 'preact/hooks';
+import {useCallback, useRef, useState} from 'preact/hooks';
 import {PickerIcon} from '../components/Glyph';
 import {useKeys, clamp, type NavKey} from '../hooks/useKeys';
 
@@ -57,8 +57,11 @@ export function PowerOnPicker ({choices, chosen, network, restartNeeded, untilRe
 			detail: 'How phone apps and Home Assistant switch it on. Casting to it while off then opens this app first'});
 	}
 	choices.forEach((c) => rows.push({key: 'c:' + c.id, kind: 'choice', label: c.label, detail: c.detail, choice: c, current: c.id === chosen}));
+	// a focused row that goes away (the restart row after a refresh): stay at about the same place
+	const lastIndex = useRef(0);
 	const found = rows.findIndex((r) => r.key === focusKey);
-	const index = found === -1 ? 0 : found;
+	const index = found === -1 ? clamp(lastIndex.current, 0, Math.max(0, rows.length - 1)) : found;
+	lastIndex.current = index;
 	const focusAt = (i: number) => { const row = rows[clamp(i, 0, Math.max(0, rows.length - 1))]; if (row) setFocusKey(row.key); };
 
 	const activate = (i: number) => {
