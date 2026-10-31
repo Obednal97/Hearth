@@ -1,4 +1,4 @@
-import {useCallback, useEffect, useRef, useState} from 'preact/hooks';
+import {useCallback, useEffect, useMemo, useRef, useState} from 'preact/hooks';
 import {varScope} from '../lib/cssvars';
 import {Row} from '../components/Row';
 import type {TileModel} from '../components/Tile';
@@ -7,11 +7,12 @@ import {useOkPress} from '../hooks/useOkPress';
 import {launchApp} from '../lib/launch';
 import {isWebOS} from '../lib/luna';
 import {closeRecents, listRecents, type RecentApp} from '../lib/recents';
+import {recentTile} from '../lib/tiles';
 import {LAYOUT} from '../theme/tokens';
 
 interface Props {
-	/** known icons by app id (the home row's list) */
-	icons: Record<string, string | undefined>;
+	/** every app's and input's tile by id, with the user's names and icons (the home row's) */
+	tiles: Record<string, TileModel>;
 	/** panel size, % of the screen */
 	width: number;
 	height: number;
@@ -23,7 +24,7 @@ interface Props {
 
 /** The panel Back opens on the home screen: the TV's recent apps along the bottom. OK opens one, holding OK closes it,
  *  Up reaches "Close all", Back closes the panel. */
-export function Recents ({icons, width, height, onClose, onOpen, onToast}: Props) {
+export function Recents ({tiles, width, height, onClose, onOpen, onToast}: Props) {
 	const [apps, setApps] = useState<RecentApp[] | null>(null);
 	const [error, setError] = useState('');
 	const [busy, setBusy] = useState(false);
@@ -44,6 +45,9 @@ export function Recents ({icons, width, height, onClose, onOpen, onToast}: Props
 
 	const count = apps ? apps.length : 0;
 	const current = apps ? apps[clamp(index, 0, Math.max(0, count - 1))] : undefined;
+	// drawn as on the home row; the names in messages are the drawn ones too
+	const items: TileModel[] = useMemo(() => (apps || []).map((a) => recentTile(a.id, a.title, tiles)), [apps, tiles]);
+	const nameOf = (a: RecentApp) => recentTile(a.id, a.title, tiles).label;
 
 	const close = (ids: string[], label: string) => {
 		if (!ids.length || busy) return;
@@ -55,7 +59,7 @@ export function Recents ({icons, width, height, onClose, onOpen, onToast}: Props
 			else onToast(ids.length > 1 ? `Closed ${ids.length} apps` : `Closed ${label}`);
 		}));
 	};
-	const open = (a?: RecentApp) => { if (!a) return; if (onOpen) onOpen(a.id); launchApp(a.id).then(() => onClose(), () => onToast(`Couldn't open ${a.title}`, 'error')); };
+	const open = (a?: RecentApp) => { if (!a) return; if (onOpen) onOpen(a.id); launchApp(a.id).then(() => onClose(), () => onToast(`Couldn't open ${nameOf(a)}`, 'error')); };
 
 	const handleKey = useCallback((key: NavKey): boolean => {
 		if (key === 'back') { onClose(); return true; }
@@ -69,13 +73,12 @@ export function Recents ({icons, width, height, onClose, onOpen, onToast}: Props
 	useKeys(handleKey, true);
 	useOkPress({
 		onPress: () => { if (busy) return; if (onButton) { if (count && apps) close(apps.map((a) => a.id), ''); } else open(current); },
-		onLongPress: () => { if (!busy && !onButton && current) close([current.id], current.title); }
+		onLongPress: () => { if (!busy && !onButton && current) close([current.id], nameOf(current)); }
 	}, true);
 
 	const k = height / 30;
 	const tileSize = Math.round(112 * k);
 	const tileGap = Math.round(24 * k);
-	const items: TileModel[] = (apps || []).map((a) => ({key: a.id, label: a.title, imageUrl: icons[a.id]}));
 	const status = apps === null ? 'Loading…' : error || (count ? '' : 'No recent apps');
 	const hint = busy ? 'Closing…' : onButton ? 'OK closes all · ↓ apps · Back returns' : 'OK open · Hold OK close · ↑ Close all';
 	const side = (100 - width) / 2;
