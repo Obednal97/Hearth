@@ -14,6 +14,7 @@ import {validCoords, type City, type TempUnit} from './weather';
 import {cleanRemap, DEFAULT_REMAP, type RemapConfig} from './remapcmd';
 import type {HomeFocus} from './homefocus';
 import {REMOTES, type RemoteModel} from './remotes';
+import {HIDDEN_BY_DEFAULT, hideByDefault} from './apporder';
 
 export type WallpaperMode = 'gradient' | 'image' | 'folder';
 export type ClockFormat = 'tv' | '12h' | '24h';
@@ -96,6 +97,8 @@ export interface UserConfig {
 	appIds: string[] | null;
 	/** apps the user hid; every other app shows. null → settings from an older version, converted when the app list loads */
 	hiddenIds: string[] | null;
+	/** the apps of HIDDEN_BY_DEFAULT (apporder.ts) already put on the hide-list once, so one switched on stays on */
+	hiddenByDefault: string[];
 	/** ordered input appIds (com.webos.app.hdmiN) shown after the apps; empty → none */
 	sourceIds: string[];
 	/** the order of the apps and inputs together on the home row (tile keys); null → apps, then inputs */
@@ -212,7 +215,8 @@ export const DEFAULT_CLOCK: ClockConfig = {
 
 export const DEFAULT_CONFIG: UserConfig = {
 	appIds: null,
-	hiddenIds: [],
+	hiddenIds: HIDDEN_BY_DEFAULT.slice(),
+	hiddenByDefault: HIDDEN_BY_DEFAULT.slice(),
 	sourceIds: [],
 	tileOrder: null,
 	closeHome: true,
@@ -284,10 +288,13 @@ export function loadConfig (): UserConfig {
 		const mode: WallpaperMode = w.mode === 'image' || w.mode === 'folder' ? w.mode : 'gradient';
 		const path = typeof w.path === 'string' ? w.path : '';
 		const interval = typeof w.intervalSec === 'number' && w.intervalSec >= 5 ? w.intervalSec : DEFAULT_WALLPAPER.intervalSec;
+		// older settings listed the apps to SHOW: they are converted once the app list is known
+		const savedHidden = stringList(parsed.hiddenIds);
+		const hidden = hideByDefault(savedHidden !== null ? savedHidden : (stringList(parsed.appIds) === null ? [] : null), stringList(parsed.hiddenByDefault) || []);
 		return {
 			appIds: stringList(parsed.appIds),
-			// older settings listed the apps to SHOW: they are converted once the app list is known
-			hiddenIds: stringList(parsed.hiddenIds) !== null ? stringList(parsed.hiddenIds) : (stringList(parsed.appIds) === null ? [] : null),
+			hiddenIds: hidden.hidden,
+			hiddenByDefault: hidden.done,
 			sourceIds: stringList(parsed.sourceIds) || [],
 			tileOrder: stringList(parsed.tileOrder),
 			closeHome: parsed.closeHome !== false,
