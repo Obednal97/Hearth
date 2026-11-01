@@ -585,6 +585,7 @@ export const en = {
 	'picker.thisFolderHasNo2': 'This folder has no pictures or folders',
 	'picker.beforeYouChoose': 'Before you choose',
 	'picker.beforeYouChoose2': 'Before you choose',
+	'picker.wallpaperTip': 'Pictures: 1920×1080, up to {mb} MB · Moving backgrounds: looping .mp4 videos in the Moving backgrounds folder',
 	'picker.loading': 'Loading…',
 	'poweronpicker.pressOkAgainTo': 'Press OK again to restart the TV',
 	'poweronpicker.theScreenGoesDark': 'The screen goes dark for about half a minute. Back cancels',

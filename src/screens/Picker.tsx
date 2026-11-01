@@ -82,18 +82,6 @@ const THEME_HOWTO = (): string[] => [
 	tt('picker.tvAddressIsTheIp')
 ];
 
-const WALLPAPER_WARNING = (): string[] => [
-	tt('picker.recommendedSize1920x1080AGood'),
-	tt('picker.bigPicturesSlowDownThe'),
-	tt('picker.hardLimitMbMbAnd', {mb: Math.round(WALLPAPER.maxBytes / MB), mp: WALLPAPER.maxPixels / 1000000})
-];
-const WALLPAPER_HOWTO = (): string[] => [
-	tt('picker.toUseYourOwnPictures'),
-	tt('video.howTo', {path: VIDEO_FOLDER.path}),
-	tt('picker.overSshFromAComputer'),
-	tt('picker.withWebosDevManagerConnect'),
-	tt('picker.tvAddressIsTheIp')
-];
 
 /** Long paths keep their end (the current folder) and lose the start. */
 function shortPath (path: string): string {
@@ -295,12 +283,9 @@ export function Picker ({forIcon, forSaver, forTheme, onTheme, forLanguage, onLa
 						<div class="picker__note-para">{[tt('picker.languageNote1'), tt('picker.languageNote2'), tt('picker.languageNote3')].map((line) => <div key={line} class="picker__note-line">{line}</div>)}</div>
 					</div>
 				)}
+				{/* local build: one short line instead of upstream's "Before you choose" box (owner: a wall of text) */}
 				{path === null && !forIcon && !forSaver && !forTheme && !forLanguage && (
-					<div class="picker__note">
-						<div class="picker__note-title">{tt('picker.beforeYouChoose2')}</div>
-						<div class="picker__note-para">{WALLPAPER_WARNING().map((line) => <div key={line} class="picker__note-line">{line}</div>)}</div>
-						<div class="picker__note-para">{WALLPAPER_HOWTO().map((line) => <div key={line} class="picker__note-line">{line}</div>)}</div>
-					</div>
+					<p class="settings__hint picker__tip">{tt('picker.wallpaperTip', {mb: Math.round(WALLPAPER.maxBytes / MB)})}</p>
 				)}
 				<div class="picker__path">{path === null ? tt('picker.locations') : shortPath(path)}</div>
 				<div class="picker">
