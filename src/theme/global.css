@@ -899,5 +899,15 @@ html.hearth-video-shade .wallpaper__fade {
 .plex-link__char--empty { color: var(--color-text-muted); }
 .plex-link__status { color: var(--color-text-primary); }
 
-/* local build: the wallpaper picker's one-line tip (replaces the advice box) */
-.picker__tip { margin-top: -8px; opacity: 0.75; }
+/* local build: the wallpaper picker shows the highlighted row's look behind it (Picker onPreview): the list sits on a dark
+   panel on the left, the right side stays clear. Bigger secondary text for reading from the sofa. */
+.screen--picker.screen--picker-preview {
+	background: linear-gradient(to right, rgba(0, 0, 0, 0.9) 0, rgba(0, 0, 0, 0.86) 1000px, rgba(0, 0, 0, 0.4) 1240px, rgba(0, 0, 0, 0) 1480px);
+}
+.screen--picker-preview .picker { width: 920px; }
+.screen--picker-preview .picker__path { font-size: 24px; margin: 22px 0 10px; }
+.screen--picker-preview .picker__row { height: 90px; }
+.screen--picker-preview .picker__detail { font-size: 24px; }
+.hearth-picking .screen--settings { visibility: hidden; }
+/* local build: the line under every Settings/picker title was 19 px and muted, too small to read from the sofa */
+.settings__hint { font-size: 26px; color: var(--color-text-secondary); }
