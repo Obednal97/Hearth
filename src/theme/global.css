@@ -898,3 +898,6 @@ html.hearth-video-shade .wallpaper__fade {
 }
 .plex-link__char--empty { color: var(--color-text-muted); }
 .plex-link__status { color: var(--color-text-primary); }
+
+/* local build: the wallpaper picker's one-line tip (replaces the advice box) */
+.picker__tip { margin-top: -8px; opacity: 0.75; }
