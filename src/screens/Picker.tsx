@@ -1,4 +1,3 @@
-import {WALLPAPER} from '../config/constants';
 import {exec} from '../lib/apps';
 import {MAKE_FOLDER_COMMAND, THEME_FOLDER} from '../lib/themecmd';
 import {LANGUAGE_FOLDER, MAKE_LANGUAGE_FOLDER} from '../lib/langpack';
@@ -35,6 +34,8 @@ interface Props {
 	forLanguage?: boolean;
 	onLanguage?: (path: string) => Promise<void>;
 	onChoose: (choice: WallpaperChoice) => void;
+	/** wallpaper picker (local build): the highlighted row's look, shown behind the list while choosing (null: nothing to show) */
+	onPreview?: (choice: WallpaperChoice | null) => void;
 	onClose: () => void;
 }
 
@@ -51,7 +52,9 @@ interface PickerRow {
 	deep?: boolean;
 }
 
-const VISIBLE_ROWS = 9;
+const VISIBLE_ROWS = 7;          // local build: 9 rows of 96 px ran off the bottom of a 1080p screen
+/** the wallpaper picker leaves room under its header for the list */
+const VISIBLE_ROWS_WALLPAPER = 7;
 const themesFolderRow = (): StorageRoot => ({label: tt('picker.themesFolder'), path: THEME_FOLDER});       // read when the picker opens, so the language in use counts (T2b)
 const languagesFolderRow = (): StorageRoot => ({label: tt('picker.languagesFolder'), path: LANGUAGE_FOLDER});
 const JSON_FILE = /\.json$/i;
@@ -61,8 +64,6 @@ const HINTS = {
 	get folder () { return tt('picker.okOpensAFolderOr'); }
 };
 
-/** Advice shown at the top level of the wallpaper picker (not in the icon picker): a warning, then how to copy files. */
-const MB = 1048576;
 /** First line is the title. Kept in capitals on purpose (user, P29a). */
 const SAVER_WARNING = (): string[] => [
 	tt('picker.warningHighPowerConsumption'),
@@ -166,7 +167,7 @@ function buildRows (path: string | null, roots: StorageRoot[], entries: DirEntry
 /** Folder browser for choosing a wallpaper picture or a slideshow folder.
  *  Top level: the default gradient, USB drives, internal storage. Inside a folder: sub-folders,
  *  pictures, and (when it has pictures) a row that plays the whole folder as a slideshow. */
-export function Picker ({forIcon, forSaver, forTheme, onTheme, forLanguage, onLanguage, onBuiltinVideo, onChoose, onClose}: Props) {
+export function Picker ({forIcon, forSaver, forTheme, onTheme, forLanguage, onLanguage, onBuiltinVideo, onChoose, onClose, onPreview}: Props) {
 	const [roots, setRoots] = useState<StorageRoot[]>([]);
 	const [path, setPath] = useState<string | null>(null);
 	const [entries, setEntries] = useState<DirEntry[]>([]);
@@ -255,15 +256,40 @@ export function Picker ({forIcon, forSaver, forTheme, onTheme, forLanguage, onLa
 
 	useKeys(handleKey, true);
 
-	const start = clamp(index - Math.floor(VISIBLE_ROWS / 2), 0, Math.max(0, rows.length - VISIBLE_ROWS));
-	const visible = rows.slice(start, start + VISIBLE_ROWS);
+	// local build: while the wallpaper picker is open, Settings (kept mounted underneath) is hidden so only the preview shows
+	useEffect(() => {
+		if (!forWallpaper) return undefined;
+		document.documentElement.classList.add('hearth-picking');
+		return () => document.documentElement.classList.remove('hearth-picking');
+	}, []);       // eslint-disable-line react-hooks/exhaustive-deps
+	// local build: the highlighted row's look is shown behind the list (videos play, pictures load), after a short pause so
+	// stepping quickly through the list doesn't load every one; folders keep what is showing
+	const focusedRow = rows[clamp(index, 0, Math.max(0, rows.length - 1))];
+	const previewKey = forWallpaper && focusedRow && !loading ? focusedRow.key + '|' + (focusedRow.path || path || '') : '';
+	useEffect(() => {
+		if (!onPreview || !previewKey || !focusedRow) return undefined;
+		const row = focusedRow;
+		const choice: WallpaperChoice | null = row.kind === 'movie' && row.path ? {mode: 'video', path: row.path}
+			: row.kind === 'movies' && path ? {mode: 'video', path}
+			: row.kind === 'picture' && row.path ? {mode: 'image', path: row.path}
+			: row.kind === 'gradient' ? {mode: 'gradient'}
+			: row.kind === 'photos' ? {mode: 'photos'}
+			: null;
+		if (!choice) return undefined;
+		const timer = window.setTimeout(() => onPreview(choice), row.kind === 'picture' ? 650 : 250);
+		return () => window.clearTimeout(timer);
+	}, [previewKey]);       // eslint-disable-line react-hooks/exhaustive-deps
+
+	const shown = forWallpaper ? VISIBLE_ROWS_WALLPAPER : VISIBLE_ROWS;
+	const start = clamp(index - Math.floor(shown / 2), 0, Math.max(0, rows.length - shown));
+	const visible = rows.slice(start, start + shown);
 	const iconFor = (row: PickerRow) => row.kind === 'gradient' ? 'default' : row.kind === 'photos' || row.kind === 'video' || row.kind === 'movies' ? 'slideshow' : row.kind === 'retry' ? 'info' : row.kind === 'theme' || row.kind === 'movie' ? 'app' : row.kind === 'root' ? (row.path === INTERNAL_ROOT.path || row.path === WALLPAPER_FOLDER.path || row.path === SAVER_FOLDER.path || row.path === VIDEO_FOLDER.path || row.path === THEME_FOLDER || row.path === LANGUAGE_FOLDER ? 'folder' : 'drive') : row.kind;
 
 	return (
-		<div class="screen screen--picker">
+		<div class={`screen screen--picker${forWallpaper ? ' screen--picker-preview' : ''}`}>
 			<div class="settings">
 				<h1 class="settings__title">{forLanguage ? tt('picker.loadALanguage') : forTheme ? tt('picker.loadATheme') : forIcon ? tt('picker.chooseAPictureForThe') : forSaver ? tt('picker.chooseScreenSaverPictures') : tt('picker.chooseWallpaper')}</h1>
-				<p class="settings__hint">{busy ? (forLanguage ? tt('picker.loadingTheLanguage') : tt('picker.loadingTheTheme')) : forLanguage ? (path === null ? tt('picker.pickWhereTheLanguage') : tt('picker.okOpensAFolderLanguage')) : forTheme ? (path === null ? tt('picker.pickWhereTheThemeFile') : tt('picker.okOpensAFolderOr')) : path === null ? HINTS.roots : HINTS.folder}</p>
+				<p class="settings__hint">{busy ? (forLanguage ? tt('picker.loadingTheLanguage') : tt('picker.loadingTheTheme')) : forLanguage ? (path === null ? tt('picker.pickWhereTheLanguage') : tt('picker.okOpensAFolderLanguage')) : forTheme ? (path === null ? tt('picker.pickWhereTheThemeFile') : tt('picker.okOpensAFolderOr')) : forWallpaper ? (path === null ? tt('picker.wallRootsHint') : tt('picker.wallFolderHint')) : path === null ? HINTS.roots : HINTS.folder}</p>
 				{path === null && forSaver && (
 					<div class="picker__note">
 						<div class="picker__note-title">{SAVER_WARNING()[0]}</div>
@@ -282,10 +308,6 @@ export function Picker ({forIcon, forSaver, forTheme, onTheme, forLanguage, onLa
 						<div class="picker__note-title">{tt('picker.beforeYouChoose')}</div>
 						<div class="picker__note-para">{[tt('picker.languageNote1'), tt('picker.languageNote2'), tt('picker.languageNote3')].map((line) => <div key={line} class="picker__note-line">{line}</div>)}</div>
 					</div>
-				)}
-				{/* local build: one short line instead of upstream's "Before you choose" box (owner: a wall of text) */}
-				{path === null && !forIcon && !forSaver && !forTheme && !forLanguage && (
-					<p class="settings__hint picker__tip">{tt('picker.wallpaperTip', {mb: Math.round(WALLPAPER.maxBytes / MB)})}</p>
 				)}
 				<div class="picker__path">{path === null ? tt('picker.locations') : shortPath(path)}</div>
 				<div class="picker">
