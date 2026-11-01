@@ -267,6 +267,23 @@ eq(p.resetLook({...c0, clock: {...c0.clock, color: 'black', opacity: 30}}).clock
   s.loadConfig();
   eq(BK in store, false, 'P106: a fresh install has no backup');
 }
+// ---- screen saver default (local build: Off) ----
+{
+  delete store[KEY];
+  eq([s.DEFAULT_CONFIG.screensaver, s.loadConfig().screensaver], [false, false], 'the screen saver is off on a fresh install');
+  store[KEY] = JSON.stringify({defaultsV: s.DEFAULTS_VERSION});
+  eq(s.loadConfig().screensaver, false, 'saved settings without the field (updaters) read as Off');
+  store[KEY] = JSON.stringify({defaultsV: s.DEFAULTS_VERSION, screensaver: true});
+  eq(s.loadConfig().screensaver, true, 'an explicit On is kept');
+  store[KEY] = JSON.stringify({defaultsV: s.DEFAULTS_VERSION, screensaver: false});
+  eq(s.loadConfig().screensaver, false, 'an explicit Off is kept');
+  store[KEY] = JSON.stringify({screensaver: true});
+  eq(s.loadConfig().screensaver, true, 'the one-time look reset keeps an explicit On');
+  delete store['hearth-prefs-backup-v1'];
+  delete store[KEY];
+  eq(p.optionsFor('saver', c0).filter((o) => o.id !== 'screensaver').length, 0, 'with the saver off its other rows are hidden');
+}
+
 // ---- Continue Watching (Plex, local build) ----
 {
   delete store[KEY];
