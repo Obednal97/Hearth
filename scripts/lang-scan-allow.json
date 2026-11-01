@@ -258,5 +258,21 @@
  {
   "file": "lib/lghome.ts",
   "text": "the shell did not answer"
+ },
+ {
+  "file": "lib/prefs.ts",
+  "text": "Plex"
+ },
+ {
+  "file": "lib/plex.ts",
+  "text": "Hearth"
+ },
+ {
+  "file": "lib/plex.ts",
+  "text": "Hearth (LG TV)"
+ },
+ {
+  "file": "lib/plex.ts",
+  "text": "Accept"
  }
 ]

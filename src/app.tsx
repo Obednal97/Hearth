@@ -19,6 +19,9 @@ import {CityPicker} from './screens/CityPicker';
 import {Recents} from './screens/Recents';
 import {lazyTab} from './lib/lazytab';
 import {SourceEditor} from './screens/SourceEditor';
+import {PlexLink} from './screens/PlexLink';
+import {cachedContinue, fetchContinue, openContinue, plexServerName, plexSignOut, PLEX_CLIENTS, type ContinueItem} from './lib/plex';
+import {CONTINUE_CARD} from './components/ContinueRow';
 import {iconFromFile} from './lib/customicon';
 import {log, logLines, allLogLines} from './lib/log';
 import {noteLife, previousLife} from './lib/lifemark';
@@ -98,7 +101,10 @@ import {fetchWeather} from './lib/weathernet';
 import {FRESH_MS, isFresh, readWeatherCache, usableCached, weatherView, writeWeatherCache, type City, type WeatherData} from './lib/weather';
 import {CONNECT_APPS_NOTE} from './config/connectapps';
 
-type Screen = 'home' | 'settings' | 'picker' | 'saverpicker' | 'cities' | 'source' | 'iconpicker' | 'homekey' | 'preload' | 'poweron' | 'remote' | 'extrakeys' | 'themes' | 'languages' | 'updates';
+// local build: Continue Watching items open in Plex Lite when it is installed (else the official Plex app)
+PLEX_CLIENTS.push('com.bednal.plexlite');
+
+type Screen = 'home' | 'settings' | 'picker' | 'saverpicker' | 'cities' | 'source' | 'iconpicker' | 'homekey' | 'preload' | 'poweron' | 'remote' | 'extrakeys' | 'themes' | 'languages' | 'updates' | 'plexlink';
 
 const TAB = {apps: 'apps', sources: 'sources', appsSources: 'appsources', look: 'look', clock: 'clock', wallpaper: 'wallpaper', saver: 'saver', system: 'system', debug: 'debug', tests: 'tests'} as const;
 const MISC = {lgHome: 'lg-home', settings: 'settings', system: 'system-settings'} as const;
@@ -182,6 +188,12 @@ export function App () {
 	const closedAt = useRef(0);
 	const [systemInfo, setSystemInfo] = useState<SystemInfo>({homeHook: null});
 	const [powerOnBusy, setPowerOnBusy] = useState(false);       // "When the TV turns on" is being changed (P55b)
+	// local build: Continue Watching (Plex). The saved list is drawn at once; the server is asked later (see below).
+	const [plexServer, setPlexServer] = useState<string | null>(plexServerName);
+	const [continueItems, setContinueItems] = useState<ContinueItem[]>(() => (config.continueWatching ? cachedContinue() : []));
+	const [continueReloads, setContinueReloads] = useState(0);
+	const continueAt = useRef(0);
+	const seenContinueReloads = useRef(0);
 	const tvFormat = useTimeFormat();
 
 	// H3a: no app opened since the TV started (no marker file in /tmp) puts the highlight on the first app until one is opened.
@@ -792,6 +804,26 @@ export function App () {
 		return () => { cancelled = true; window.clearTimeout(timer); };
 	}, [wxCity !== null, wxLat, wxLon, wakes, showToast]);
 
+	// Continue Watching (local build): the server's list is read off the start-up path, like the app list and the weather
+	// (their saved copies are on screen already): at TIER2 after a start, a few seconds after a wake, at most once a minute.
+	// Signing in reads it at once. A failed read keeps what is on screen.
+	const showContinue = config.continueWatching && !!plexServer;
+	useEffect(() => {
+		if (!showContinue) return undefined;
+		const forced = continueReloads !== seenContinueReloads.current;
+		seenContinueReloads.current = continueReloads;
+		if (!forced && Date.now() - continueAt.current < 60000) return undefined;
+		let cancelled = false;
+		const timer = window.setTimeout(() => {
+			if (document.hidden) return;
+			fetchContinue(12, CONTINUE_CARD.width, CONTINUE_CARD.height).then(
+				(items) => { if (cancelled) return; continueAt.current = Date.now(); setContinueItems(items); },
+				(e: Error) => { if (!cancelled) log('Continue Watching: ' + (e && e.message ? e.message : 'could not be read')); }
+			);
+		}, forced ? 0 : startDelay(TIER2_MS, TIMING.backgroundWorkMs));
+		return () => { cancelled = true; window.clearTimeout(timer); };
+	}, [showContinue, wakes, continueReloads]);
+
 	const weatherLine = useMemo(() => {
 		if (!wxCity) return null;
 		const data = usableCached(weather, wxCity.lat, wxCity.lon, Date.now());
@@ -1018,10 +1050,10 @@ export function App () {
 		lazyTab({id: TAB.clock, label: tt('app.widget'), items: [], shown: []}, {options: () => groupsOf('clock')}),
 		lazyTab({id: TAB.wallpaper, label: tt('app.wallpaper'), items: [], shown: []}, {options: () => groupsOf('wallpaper')}),
 		...(noRoot ? [] : [lazyTab({id: TAB.saver, label: tt('app.screenSaver'), items: [], shown: []}, {options: () => groupsOf('saver', systemInfo)})]),
-		lazyTab({id: TAB.system, label: tt('app.system'), items: [], shown: []}, {options: () => groupsOf('system', {...systemInfo, tvInput, powerOnNames})}),
+		lazyTab({id: TAB.system, label: tt('app.system'), items: [], shown: []}, {options: () => groupsOf('system', {...systemInfo, tvInput, powerOnNames, plexServer})}),
 		...(config.showDebug ? [{id: TAB.debug, label: tt('app.debug'), items: [], shown: [], pages: debugPagesNow}] : []),
 		...(PROBE_ENABLED && config.showDebug ? [{id: TAB.tests, label: tt('app.tests'), items: [], shown: [], options: probeOptions(probe)}] : [])
-	], [apps, inputs, shownApps, shownInputs, config, systemInfo, tvInput, probe, debugPagesNow, openGroups, noRoot, powerOnNames, themeRev, langTick]);    // eslint-disable-line react-hooks/exhaustive-deps
+	], [apps, inputs, shownApps, shownInputs, config, systemInfo, tvInput, probe, debugPagesNow, openGroups, noRoot, powerOnNames, plexServer, themeRev, langTick]);    // eslint-disable-line react-hooks/exhaustive-deps
 
 	const editedSource = editKey ? inputs.filter((i) => i.appId === editKey)[0] : undefined;
 	const editedApp = editKey && !editedSource ? apps.filter((a) => a.id === editKey)[0] : undefined;
@@ -1088,7 +1120,7 @@ export function App () {
 		if (optionId.indexOf(GROUP_PREFIX) === 0) {          // a group header: open it (closing the others) or close it
 			const tabId = optionId.slice(GROUP_PREFIX.length).split(':')[0] as PrefTab;
 			const name = optionId.slice(GROUP_PREFIX.length + tabId.length + 1);
-			const header = optionsFor(tabId, config, tabId === 'system' ? {...systemInfo, tvInput, powerOnNames} : tabId === 'saver' || tabId === 'look' ? systemInfo : undefined, openGroups[tabId] || '').filter((o) => o.id === optionId)[0];
+			const header = optionsFor(tabId, config, tabId === 'system' ? {...systemInfo, tvInput, powerOnNames, plexServer} : tabId === 'saver' || tabId === 'look' ? systemInfo : undefined, openGroups[tabId] || '').filter((o) => o.id === optionId)[0];
 			setOpenGroups((g) => ({...g, [tabId]: header && header.open ? '' : name}));
 			return;
 		}
@@ -1097,6 +1129,8 @@ export function App () {
 		const blocked = disabledReason(optionId, systemInfo, config);
 		if (blocked) { showToast(blocked, 'error'); return; }
 		if (optionId === 'weatherOn' && !config.weather.city) { showToast(tt('app.chooseACityFirst')); setScreen('cities'); return; }
+		// turning Continue Watching on before signing in: sign in first (it is switched on when that finishes)
+		if (optionId === 'continueWatching' && !config.continueWatching && !plexServer) { setScreen('plexlink'); return; }
 		if (optionId === 'keepReady' && press === 'ok' && !config.keepReady) {       // P73: a warning before it is turned on
 			setNotice({
 				title: tt('app.keepHearthReady'),
@@ -1126,6 +1160,14 @@ export function App () {
 		if (optionId === 'wallpaper' && press === 'ok') { setScreen('picker'); return; }       // OK: pick a picture or folder; ← → step the built-in backgrounds
 		if (pref.kind === 'action') {
 			if (optionId === 'weatherCity') setScreen('cities');
+			else if (optionId === 'plexAccount') {
+				if (plexServer) {
+					plexSignOut();
+					setPlexServer(null);
+					setContinueItems([]);
+					showToast(tt('app.plexSignedOut'));
+				} else setScreen('plexlink');
+			}
 			else if (optionId === 'restoreLook') {
 				const back = withBackedUpLook(config);
 				if (back) { setConfig(back); if (saveConfigVerified(back)) { dropPrefsBackup(); showToast(tt('app.yourEarlierSettingsAre')); } else showToast(tt('app.restoreNotSaved'), 'error'); }          // I2: the backup goes only after a save that read back
@@ -1329,7 +1371,21 @@ export function App () {
 		}
 		const next = applyPref(config, optionId, press);
 		if (next !== config) updateConfig(next);
-	}, [config, showToast, systemInfo, tvInput, openGroups]);
+	}, [config, showToast, systemInfo, tvInput, openGroups, plexServer]);
+
+	// Continue Watching (local build): signed in to Plex: the row is switched on and read at once.
+	const onPlexSignedIn = useCallback((name: string) => {
+		setPlexServer(name);
+		setConfig((c) => { const next = {...c, continueWatching: true}; saveConfig(next); return next; });
+		setContinueReloads((n) => n + 1);
+		setScreen('settings');
+		showToast(tt('app.plexSignedIn', {server: name}));
+	}, [showToast]);
+
+	const onContinue = useCallback((item: ContinueItem, details: boolean) => {
+		if (config.replaceHome) markAliveSoon('launcher: opening Plex', false);
+		openContinue(item, details).catch(() => showToast(tt('app.couldNotOpenPlex'), 'error'));
+	}, [config.replaceHome, showToast]);
 
 	const onRefresh = useCallback(() => {
 		manualLoad.current = true;
@@ -1630,7 +1686,7 @@ export function App () {
 			{wallpaperOn && photoShow && <PhotoShow fit={config.wallpaper.fit === 'fit'} intervalSec={config.wallpaper.intervalSec} shuffle={config.wallpaper.shuffle} paused={asleep} />}
 			{wallpaperOn && !photoShow && <Wallpaper config={config.wallpaper} opacity={config.wallpaperOpacity} onProblem={(text) => showToast(text, 'error')} />}
 			{/* Home stays mounted under the other screens so it keeps its focus position. */}
-			<Home items={homeItems} favourites={config.favourites} timeFormat={timeFormat} appearance={appearance} active={screen === 'home' && !menu && !recents && !notice} paused={asleep} onActivate={onActivate} onLongPress={onLongPress} onDeadDown={config.hideSettings && !tileBack ? showTileAgain : undefined} onBack={openRecents} wake={wakes} homeKey={config.homeFocus === 'last' && !homeFirst.current && !bootFirst.current ? lastOpened.current : null} focus={focus} weather={weatherLine} moveMode={moveMode} tileKeys={keysRef.current} onMovePick={onMovePick} onMoveStep={onMoveStep} onMoveExit={onMoveExit} />
+			<Home items={homeItems} favourites={config.favourites} timeFormat={timeFormat} appearance={appearance} active={screen === 'home' && !menu && !recents && !notice} paused={asleep} onActivate={onActivate} onLongPress={onLongPress} onDeadDown={config.hideSettings && !tileBack ? showTileAgain : undefined} onBack={openRecents} wake={wakes} homeKey={config.homeFocus === 'last' && !homeFirst.current && !bootFirst.current ? lastOpened.current : null} focus={focus} weather={weatherLine} moveMode={moveMode} tileKeys={keysRef.current} onMovePick={onMovePick} onMoveStep={onMoveStep} onMoveExit={onMoveExit} continueItems={showContinue ? continueItems : undefined} onContinue={onContinue} />
 			{recents && screen === 'home' && <Recents icons={recentIcons} edits={config.appEdits} inputs={allInputs} sourceEdits={config.sourceEdits} width={config.recentsW} height={config.recentsH} onClose={closeRecents} onOpen={noteOpened} onToast={showToast} />}
 			{/* Settings stays mounted under the picker so it keeps its tab. */}
 			{screen === 'settings' && settingsTab === TAB.clock && appearance.clock.show && !config.showDebug && <WidgetPreview now={previewNow} format={timeFormat} config={appearance.clock} weather={weatherLine} />}
@@ -1691,6 +1747,7 @@ export function App () {
 			)}
 			{screen === 'homekey' && <HomeKey model={config.remoteModel} onModel={onRemoteModel} onClose={() => setScreen('settings')} onChanged={(code) => setSystemInfo((previous) => ({...previous, homeKey: code}))} onToast={showToast}  onAuto={onAutoMap} paused={!!notice} />}
 			{screen === 'saverpicker' && <Picker forSaver onBuiltinVideo={onChooseSaverVideo} onChoose={onChooseSaver} onClose={() => setScreen('settings')} />}
+			{screen === 'plexlink' && <PlexLink onDone={onPlexSignedIn} onClose={() => setScreen('settings')} />}
 			{WEATHER_ENABLED && screen === 'cities' && <CityPicker allowShell={isWebOS()} onChoose={onChooseCity} onClose={() => setScreen('settings')} />}
 			{/* W2: last, so a pop-up is in front of every screen (all screens share one layer; the later one is on top) */}
 			{notice && <Notice title={notice.title} text={notice.text} buttons={notice.buttons} onBack={notice.onBack} />}
