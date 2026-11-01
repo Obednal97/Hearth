@@ -94,7 +94,7 @@ export const en = {
 	'pref.showPeriod.label': 'Show AM / PM',
 	'pref.showPeriod.desc': 'AM or PM beside the time (12-hour only).',
 	'pref.wallpaper.label': 'Wallpaper',
-	'pref.wallpaper.desc': 'A built-in background, your own picture, a slideshow, or a moving background (a video).',
+	'pref.wallpaper.desc': 'OK: choose your own picture, a slideshow or a moving background (video). ← →: the built-in backgrounds.',
 	'pref.interval.label': 'Change picture every',
 	'pref.interval.desc': 'How long each picture stays up.',
 	'pref.shuffle.label': 'Shuffle',
