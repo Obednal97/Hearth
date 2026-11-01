@@ -9,9 +9,6 @@ export const DEFAULT_REVEAL: RevealStyle = 'subtle';
 /** 'start': the first time Home is shown after the page started; 'return': back to the front after a while (shorter). */
 export type RevealKind = 'start' | 'return';
 
-/** Coming back: the reveal starts once two frames come at most this far apart (the TV is drawing smoothly again). */
-export const REVEAL_STEADY_MS = 40;
-
 /** Away for less than this: no reveal (a quick look at another app should not replay it). */
 export const REVEAL_MIN_AWAY_MS = 5000;
 

@@ -869,7 +869,7 @@ html, body {
 /* The clock fades in, the rows rise into place, then Continue Watching. Only opacity and transform, on the clock and on
    each row (Cascade: each tile in view), never on .rows itself, which carries quiet mode, the favourites fade and the
    OLED shift. The clock keeps its own transform (position, OLED shift): it only fades. Keys work throughout. */
-.reveal--pre .clock, .reveal--pre .rows .row, .reveal--away .clock, .reveal--away .rows .row { opacity: 0; }
+.reveal--pre .clock, .reveal--pre .rows .row { opacity: 0; }
 .reveal--start .clock { -webkit-animation: hearth-reveal-fade 200ms ease-out both; animation: hearth-reveal-fade 200ms ease-out both; }
 .reveal--return .clock { -webkit-animation: hearth-reveal-fade 120ms ease-out both; animation: hearth-reveal-fade 120ms ease-out both; }
 .reveal--start .rows .row { -webkit-animation: hearth-reveal-rise 230ms ease-out 80ms both; animation: hearth-reveal-rise 230ms ease-out 80ms both; }
