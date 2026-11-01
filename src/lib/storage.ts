@@ -155,6 +155,9 @@ export interface UserConfig {
 	language: string;
 	/** show the Debug tab in Settings (Options → last row) */
 	showDebug: boolean;
+	/** local build: a "Continue Watching" row from Plex above the apps (needs a Plex sign-in, Settings → System → Plex).
+	 *  The Plex token and server are kept by lib/plex.ts under their own storage keys, never here. */
+	continueWatching: boolean;
 	/** a watcher opens this launcher whenever LG Home comes to the front (kept running whenever the launcher opens) */
 	replaceHome: boolean;
 	/** "Set Hearth as the TV's Home app" (experimental, webOS 4.x; PR #18): Hearth's id is in the TV's Home app setting; see src/homeapp */
@@ -335,6 +338,7 @@ export const DEFAULT_CONFIG: UserConfig = {
 	tvApps: false,
 	language: DEFAULT_LANGUAGE,
 	showDebug: false,
+	continueWatching: false,
 	replaceHome: false,
 	homeApp: false,
 	homeAppPrevious: '',
@@ -415,8 +419,9 @@ function ranged (value: unknown, name: RangeName): number {
 	return Math.min(r.max, snapped);
 }
 
-/** Fields left alone by the P41f reset: the user's own apps, order, names and favourites, and everything installed on the TV (helper, Home key, power-on app, saver, keep-ready, remote, debug). */
-const KEPT_ON_RESET: readonly (keyof UserConfig)[] = ['appIds', 'hiddenIds', 'sourceIds', 'tileOrder', 'favourites', 'sourceEdits', 'appEdits', 'closeHome', 'tvApps', 'showDebug', 'language', 'hideSettings',
+/** Fields left alone by the P41f reset: the user's own apps, order, names and favourites, and everything installed on the TV (helper, Home key, power-on app, saver, keep-ready, remote, debug),
+ *  and (local build) Continue Watching, which goes with the Plex sign-in. */
+const KEPT_ON_RESET: readonly (keyof UserConfig)[] = ['appIds', 'hiddenIds', 'sourceIds', 'tileOrder', 'favourites', 'sourceEdits', 'appEdits', 'closeHome', 'tvApps', 'showDebug', 'language', 'hideSettings', 'continueWatching',
 	'replaceHome', 'homeApp', 'homeAppPrevious', 'preloadOff', 'keepReady', 'keepRelaunch', 'takeoverHome', 'samHome', 'screensaver', 'screensaverSource', 'screensaverInterval', 'screensaverShuffle',
 	'screensaverCare', 'screensaverPowerOff', 'screensaverDim', 'screensaverDimLevel', 'screensaverFit', 'screensaverRecursive', 'powerOnApp', 'powerOnNetwork', 'remoteModel', 'remap', 'remapKept', 'defaultsV'];
 
@@ -508,6 +513,7 @@ export function loadConfig (): UserConfig {
 			tvApps: parsed.tvApps === true,
 			language: typeof parsed.language === 'string' ? languageId(parsed.language) : DEFAULT_LANGUAGE,
 			showDebug: parsed.showDebug === true,
+			continueWatching: parsed.continueWatching === true,
 			replaceHome: parsed.replaceHome === true,
 			homeApp: parsed.homeApp === true,
 			homeAppPrevious: typeof parsed.homeAppPrevious === 'string' && /^[A-Za-z0-9._-]+$/.test(parsed.homeAppPrevious) ? parsed.homeAppPrevious : '',

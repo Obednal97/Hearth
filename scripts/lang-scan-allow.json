@@ -262,5 +262,21 @@
  {
   "file": "lib/fitscale.ts",
   "text": "px) scale("
+ },
+ {
+  "file": "lib/prefs.ts",
+  "text": "Plex"
+ },
+ {
+  "file": "lib/plex.ts",
+  "text": "Hearth"
+ },
+ {
+  "file": "lib/plex.ts",
+  "text": "Hearth (LG TV)"
+ },
+ {
+  "file": "lib/plex.ts",
+  "text": "Accept"
  }
 ]
