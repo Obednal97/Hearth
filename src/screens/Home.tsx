@@ -17,7 +17,7 @@ import type {ClockConfig} from '../lib/storage';
 import type {WeatherView} from '../lib/weather';
 import {FONT, LAYOUT} from '../theme/tokens';
 import {varScope} from '../lib/cssvars';
-import {revealEndMs, revealKind, whenFirstFrame, type RevealKind, type RevealStyle} from '../lib/reveal';
+import {REVEAL_STEADY_MS, revealEndMs, revealKind, whenFirstFrame, type RevealKind, type RevealStyle} from '../lib/reveal';
 
 export interface Appearance {
 	/** icon size, % of the standard size */
@@ -144,7 +144,7 @@ export function Home ({items: allItems, favourites, timeFormat, appearance, acti
 	// after a while away they come in again (shorter). Only classes change on the screen (CSS animates opacity and
 	// transform of the clock, of each row and, for Cascade, of the tiles in view); keys work all the time.
 	const revealStyle = appearance.homeReveal;
-	const [reveal, setReveal] = useState<RevealKind | 'pre' | null>(() => (revealStyle !== 'off' && !document.hidden ? 'pre' : null));
+	const [reveal, setReveal] = useState<RevealKind | 'pre' | 'away' | null>(() => (revealStyle !== 'off' && !document.hidden ? 'pre' : null));
 	const [revealSeq, setRevealSeq] = useState(0);
 	const awaySince = useRef<number | null>(document.hidden ? -1 : null);       // -1: hidden since the page started (not shown yet)
 	const revealActive = useRef(active);
@@ -156,15 +156,35 @@ export function Home ({items: allItems, favourites, timeFormat, appearance, acti
 		const fallback = window.setTimeout(go, 1500);          // the first frame should come long before this; never leave Home hidden
 		return () => { cancel(); window.clearTimeout(fallback); };
 	}, [reveal === 'pre']);       // eslint-disable-line react-hooks/exhaustive-deps
-	// before the browser paints the returning page, so the reveal starts from its first frame
+	// Going to the back: the clock and rows are hidden ('away') while away, so the page the TV shows again starts without them.
+	// Coming back: decided before the browser paints (a short trip shows everything at once, no flash). The TV keeps a
+	// returning page frozen for a while (0.5-1 s on webOS 4.5) before it draws smoothly again, so the reveal starts only once
+	// frames are coming steadily, not at the visibility event, or it would be over unseen.
+	const returnFrames = useRef<number>(0);
 	useLayoutEffect(() => {
-		if (paused) { if (awaySince.current === null) awaySince.current = Date.now(); return; }
+		if (paused) {
+			if (awaySince.current === null) awaySince.current = Date.now();
+			if (revealStyle !== 'off') setReveal('away');          // not 'pre': that one starts the first-show reveal at once
+			return undefined;
+		}
 		const since = awaySince.current;
-		if (since === null) return;
+		if (since === null) return undefined;
 		awaySince.current = null;
 		const kind = revealKind({style: revealStyle, firstShow: since < 0, awayMs: Date.now() - since, quiet: quietRef.current, covered: !active});
-		setReveal(kind);
-		setRevealSeq((n) => n + 1);
+		if (kind === null) { setReveal(null); setRevealSeq((n) => n + 1); return undefined; }
+		let done = false;
+		const go = () => { if (done) return; done = true; setReveal(kind); setRevealSeq((n) => n + 1); };
+		// wait for two frames in a row close together: the TV is drawing smoothly again (on webOS 4.5 the first frames
+		// back come 100-400 ms apart, then it settles to ~16 ms)
+		let prev = 0;
+		const tick = (now: number) => {
+			if (prev && now - prev < REVEAL_STEADY_MS) { go(); return; }
+			prev = now;
+			returnFrames.current = window.requestAnimationFrame(tick);
+		};
+		returnFrames.current = window.requestAnimationFrame(tick);
+		const fallback = window.setTimeout(go, 1500);           // never leave Home hidden
+		return () => { done = true; window.cancelAnimationFrame(returnFrames.current); window.clearTimeout(fallback); };
 	}, [paused]);       // eslint-disable-line react-hooks/exhaustive-deps
 	useEffect(() => {
 		if (reveal !== 'start' && reveal !== 'return') return undefined;
