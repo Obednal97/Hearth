@@ -100,6 +100,15 @@ function shortPath (path: string): string {
 	return path.length > 90 ? `…${path.slice(path.length - 89)}` : path;
 }
 
+const stem = (name: string): string => name.replace(/\.[^.]+$/, '').toLowerCase();
+
+/** The folder's entries without the pictures that are a video's poster (same name as a video in the folder). */
+export function withoutPosters (entries: DirEntry[]): DirEntry[] {
+	const movies: Record<string, true> = {};
+	entries.forEach((e) => { if (!e.isDir && isVideo(e.name)) movies[stem(e.name)] = true; });
+	return entries.filter((e) => e.isDir || isVideo(e.name) || !movies[stem(e.name)]);
+}
+
 /** `videos`: in the wallpaper picker videos are moving backgrounds, not slideshow pictures (the saver picker counts them). */
 function pictureCount (entries: DirEntry[], videos = false): number {
 	return entries.filter((e) => !e.isDir && !(videos && isVideo(e.name))).length;
@@ -130,6 +139,8 @@ function buildRows (path: string | null, roots: StorageRoot[], entries: DirEntry
 		return rows;
 	}
 	const rows: PickerRow[] = [];
+	// a picture with the same name as a video beside it is that video's poster (shown while it starts): not listed on its own
+	if (videos) entries = withoutPosters(entries);
 	const count = pictureCount(entries, videos);
 	const movies = videos ? entries.filter((e) => !e.isDir && isVideo(e.name)).length : 0;
 	if (movies > 0) {
