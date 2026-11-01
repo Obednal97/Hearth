@@ -166,5 +166,21 @@
  {
   "file": "lib/languages.ts",
   "text": "(machine translated)"
+ },
+ {
+  "file": "lib/prefs.ts",
+  "text": "Plex"
+ },
+ {
+  "file": "lib/plex.ts",
+  "text": "Hearth"
+ },
+ {
+  "file": "lib/plex.ts",
+  "text": "Hearth (LG TV)"
+ },
+ {
+  "file": "lib/plex.ts",
+  "text": "Accept"
  }
 ]

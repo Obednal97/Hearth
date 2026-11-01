@@ -2,6 +2,8 @@ import {log} from '../lib/log';
 import {useCallback, useEffect, useMemo, useRef, useState} from 'preact/hooks';
 import {Clock} from '../components/Clock';
 import {Row} from '../components/Row';
+import {ContinueRow} from '../components/ContinueRow';
+import type {ContinueItem} from '../lib/plex';
 import type {TileModel} from '../components/Tile';
 import {useKeys, type NavKey} from '../hooks/useKeys';
 import {useOkPress} from '../hooks/useOkPress';
@@ -75,6 +77,10 @@ interface Props {
 	focus?: {key: string; seq: number};
 	/** the weather line under the date, when it is on and known */
 	weather?: WeatherView | null;
+	/** local build: "Continue Watching" above the apps (empty or absent: no row) */
+	continueItems?: ContinueItem[];
+	/** OK on a Continue Watching card (details: OK was held, open the title's page instead of playing) */
+	onContinue?: (item: ContinueItem, details: boolean) => void;
 }
 
 /** OLED shift: the offset (px at 1080p) of the clock and the apps, changed once a minute through a small cycle. null = off. */
@@ -92,9 +98,18 @@ function useShift (on: boolean): {x: number; y: number} | null {
 
 /** The home screen: a clock and the tiles along the bottom, in one row or two.
  *  Left/Right move along a row, Up/Down change row (two rows), OK opens, holding OK opens the app's menu.
- *  Back opens the Recent apps panel. */
-export function Home ({items: allItems, favourites, timeFormat, appearance, active, paused, onActivate, onLongPress, onBack, wake, homeKey, focus, weather}: Props) {
+ *  Back opens the Recent apps panel. Continue Watching (local build), when shown, sits above the top row: Up from the
+ *  top row (the favourites row in favourites mode) reaches it, Down goes back. */
+export function Home ({items: allItems, favourites, timeFormat, appearance, active, paused, onActivate, onLongPress, onBack, wake, homeKey, focus, weather, continueItems, onContinue}: Props) {
 	const now = useClock(paused);
+	const cw = continueItems || [];
+	const [inCw, setInCw] = useState(false);            // the highlight is on the Continue Watching row
+	const [cwIndex, setCwIndex] = useState(0);
+	const onCw = inCw && cw.length > 0;
+	const cwAt = Math.min(cwIndex, Math.max(0, cw.length - 1));
+	const cwRef = useRef({on: false, count: 0});
+	cwRef.current = {on: onCw, count: cw.length};
+	useEffect(() => { if (!cw.length) setInCw(false); }, [cw.length]);
 	const [position, setPosition] = useState<RowsPosition>(initialPosition);
 	// Favourites: with any chosen, the first row holds them alone; Down brings up a second row with everything else, Up hides it again.
 	const favList = favourites || [];
@@ -193,6 +208,8 @@ export function Home ({items: allItems, favourites, timeFormat, appearance, acti
 		pendingKey.current = found ? null : homeKey || null;
 		setPosition(found || initialPosition());
 		setOpen(false);
+		setInCw(false);
+		setCwIndex(0);
 	}, [wake]);
 	useEffect(() => {
 		if (!pendingKey.current) return;
@@ -205,6 +222,7 @@ export function Home ({items: allItems, favourites, timeFormat, appearance, acti
 		if (!focus) return;
 		const index = items.findIndex((item) => item.key === focus.key);
 		if (index === -1) return;
+		setInCw(false);
 		const wantOpen = favN > 0 && (open || index >= favN);
 		if (wantOpen !== open) setOpen(wantOpen);
 		const sz = favN ? favouriteSizes(favN, items.length, wantOpen) : sizes;
@@ -223,6 +241,14 @@ export function Home ({items: allItems, favourites, timeFormat, appearance, acti
 			stepRef.current = d.state;
 			if (!d.move) return true;
 		}
+		if (key === 'back') { onBack(); return true; }        // Back opens the Recent apps panel
+		if (cwRef.current.on) {           // on Continue Watching: Left/Right move along it (stopping at the ends), Down goes back to the apps
+			const count = cwRef.current.count;
+			if (key === 'left' || key === 'right') setCwIndex((i) => Math.max(0, Math.min(count - 1, i + (key === 'right' ? 1 : -1))));
+			else if (key === 'down') setInCw(false);
+			return true;
+		}
+		if (key === 'up' && cwRef.current.count > 0 && rowRef.current === 0) { setInCw(true); return true; }       // Up from the top row reaches Continue Watching
 		if (favN > 0 && key === 'down' && !openRef.current && items.length > favN) {       // bring up the row of all the other apps
 			setOpen(true);
 			setPosition((p) => movePosition(favouriteSizes(favN, items.length, true), p, 'down'));
@@ -235,14 +261,21 @@ export function Home ({items: allItems, favourites, timeFormat, appearance, acti
 		}
 		// functional updates, so quick repeated presses never act on a stale position
 		if (key === 'left' || key === 'right' || key === 'up' || key === 'down') setPosition((p) => movePosition(sizes, p, key));
-		else if (key === 'back') onBack();        // Back opens the Recent apps panel
 		return true;            // OK is handled by useOkPress below (press vs hold)
 	}, [sizeKey, onBack]);
 
 	useKeys(handleKey, active);
 	useOkPress({
-		onPress: () => { if (selectedItem && !quietRef.current) onActivate(selectedItem); },
-		onLongPress: () => { if (selectedItem && onLongPress && !quietRef.current) onLongPress(selectedItem); }
+		onPress: () => {
+			if (quietRef.current) return;
+			if (onCw) { if (onContinue) onContinue(cw[cwAt], false); return; }
+			if (selectedItem) onActivate(selectedItem);
+		},
+		onLongPress: () => {
+			if (quietRef.current) return;
+			if (onCw) { if (onContinue) onContinue(cw[cwAt], true); return; }
+			if (selectedItem && onLongPress) onLongPress(selectedItem);
+		}
 	}, active);
 
 	// The row's sizes are set on the row itself (not on :root), so the Settings grid keeps its own.
@@ -270,15 +303,26 @@ export function Home ({items: allItems, favourites, timeFormat, appearance, acti
 		<div class={`screen${active ? '' : ' screen--away'}${shift ? ' screen--shift' : ''}${shiftVars.cls ? ' ' + shiftVars.cls : ''}`} style={shiftVars.css || undefined}>
 			{appearance.clock.show && <Clock now={now} format={timeFormat} config={appearance.clock} weather={weather} />}
 			<div class={classes} style={rowStyle}>
+				{cw.length > 0 && (
+					<ContinueRow
+						items={cw}
+						focused={onCw}
+						selected={cwAt}
+						viewportWidth={LAYOUT.screenWidth - 2 * sideOf(0)}
+						sideMargin={favN > 0 ? sideOf(0) : undefined}
+						onSelect={(i) => { pendingKey.current = null; setInCw(true); setCwIndex(i); }}
+						onActivate={(i) => { if (onContinue) onContinue(cw[i], false); }}
+					/>
+				)}
 				{sizes.map((size, r) => {
 					const start = offsets[r];
 					return (
 						<Row
 							key={r}
 							items={items.slice(start, start + size)}
-							focused={r === at.row}
+							focused={!onCw && r === at.row}
 							selected={at.cols[r]}
-							onSelect={(col) => { pendingKey.current = null; setPosition({row: r, cols: at.cols.map((c, i) => (i === r ? col : c))}); }}
+							onSelect={(col) => { pendingKey.current = null; setInCw(false); setPosition({row: r, cols: at.cols.map((c, i) => (i === r ? col : c))}); }}
 							onActivate={(col) => onActivate(items[start + col])}
 							tileSize={tileSize}
 							tileGap={tileGap}

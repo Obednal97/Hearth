@@ -118,7 +118,7 @@ store[KEY] = JSON.stringify({defaultsV: 1, iconLight: true}); eq(s.loadConfig().
 store[KEY] = JSON.stringify({defaultsV: 1, iconStyle: 'nope'}); eq([s.loadConfig().iconStyle, s.DEFAULT_CONFIG.iconStyle], ['original', 'original'], 'an unknown icon style falls back to original');
 store[KEY] = JSON.stringify({defaultsV: 1, minimal: true}); eq(s.loadConfig().minimal, true, 'the minimalist choice is read back');
 store[KEY] = JSON.stringify({defaultsV: 1, appEdits: {'a.b': {label: 'X'}, 'c.d': {icon: 'nope'}}}); eq(s.loadConfig().appEdits, {'a.b': {label: 'X'}}, 'app edits are read back and cleaned');
-eq(p.optionsFor('system', c0).map((o) => o.id).join(','), 'language,homeKey,remap,tvApps,noRootGuide,replaceHome,powerOnApp,lgLogo,homeApp,preload,keepReady,keepRelaunch,showDebug', 'the System tab (P61b2: the Home button row moved to the Remote group): the TV app list first (shown only when not rooted), the helper script, the Home button, the power-on app, the LG logo, the experimental Home app row (P58c) and last the Debug tab switch (the TV-input row shows only while Hearth is listed)');
+eq(p.optionsFor('system', c0).map((o) => o.id).join(','), 'language,homeKey,remap,tvApps,noRootGuide,replaceHome,powerOnApp,lgLogo,homeApp,preload,keepReady,keepRelaunch,continueWatching,plexAccount,showDebug', 'the System tab (P61b2: the Home button row moved to the Remote group): the TV app list first (shown only when not rooted), the helper script, the Home button, the power-on app, the LG logo, the experimental Home app row (P58c) and last the Debug tab switch (the TV-input row shows only while Hearth is listed)');
 eq(p.optionsFor('system', c0, {homeApp: null, homeHook: null, tvInput: true}).find((o) => o.id === 'tvInput').valueText, 'Listed', 'the TV-input row (remove only, P57) shows while the launcher is in the input list');
 eq(p.optionsFor('system', c0, {homeApp: null, homeHook: null, tvInput: false}).some((o) => o.id === 'tvInput'), false, 'and is hidden when it is not');
 eq(p.optionsFor('system', c0).some((o) => o.id === 'tvInput'), false, 'and while the TV has not been asked');
@@ -245,7 +245,7 @@ eq(p.resetLook({...c0, clock: {...c0.clock, color: 'black', opacity: 30}}).clock
   q.resetRootState();
   eq(ids().includes('keepReady') || ids().includes('group:system:Memory'), true, 'P83: root unknown: the root groups show');
   q.noteExec(new Error('Service does not exist'));
-  eq(ids(), 'language,tvApps,noRootGuide,showDebug', 'P83/T0/P92: root failed: language, the SSAP row, the no-root guide and the Debug switch, no group headers');
+  eq(ids(), 'language,tvApps,noRootGuide,continueWatching,plexAccount,showDebug', 'P83/T0/P92: root failed: language, the SSAP row, the no-root guide, Continue Watching (Plex works over the network) and the Debug switch, no group headers');
   q.noteExec();
   eq(ids().includes('group:system:Memory'), true, 'P83: root works again: the groups return');
   q.resetRootState();
@@ -266,6 +266,30 @@ eq(p.resetLook({...c0, clock: {...c0.clock, color: 'black', opacity: 30}}).clock
   delete store[KEY];
   s.loadConfig();
   eq(BK in store, false, 'P106: a fresh install has no backup');
+}
+// ---- Continue Watching (Plex, local build) ----
+{
+  delete store[KEY];
+  eq([s.DEFAULT_CONFIG.continueWatching, s.loadConfig().continueWatching], [false, false], 'Continue Watching is off on a fresh install');
+  store[KEY] = JSON.stringify({defaultsV: s.DEFAULTS_VERSION});
+  eq(s.loadConfig().continueWatching, false, 'and off for saved settings without the field');
+  store[KEY] = JSON.stringify({defaultsV: s.DEFAULTS_VERSION, continueWatching: true});
+  eq(s.loadConfig().continueWatching, true, 'a saved On is read back');
+  store[KEY] = JSON.stringify({defaultsV: s.DEFAULTS_VERSION, continueWatching: 'yes'});
+  eq(s.loadConfig().continueWatching, false, 'anything but true reads as Off');
+  eq(s.withDefaultLook({...s.DEFAULT_CONFIG, continueWatching: true, theme: 'forest'}).continueWatching, true, 'the one-time look reset keeps Continue Watching');
+  store[KEY] = JSON.stringify({continueWatching: true, theme: 'forest'});        // saved by the 1.2-based build: no defaultsV, so the reset runs
+  const updated = s.loadConfig();
+  eq([updated.continueWatching, updated.theme, JSON.parse(store[KEY]).continueWatching], [true, 'black', true], 'updating from the 1.2-based build: the look is reset, Continue Watching stays On (and is saved)');
+  eq(p.resetLook({...c0, continueWatching: true}).continueWatching, true, 'Reset look leaves it alone');
+  delete store['hearth-prefs-backup-v1'];
+  delete store[KEY];
+  eq(p.applyPref(c0, 'continueWatching', 'ok').continueWatching, true, 'OK switches it on');
+  const plexRow = (info) => p.optionsFor('system', c0, info).find((o) => o.id === 'plexAccount');
+  eq([plexRow({homeHook: null}).valueText, plexRow({homeHook: null, plexServer: null}).valueText, plexRow({homeHook: null, plexServer: 'Home'}).valueText], ['Not signed in', 'Not signed in', 'Signed in · Home'], 'the Plex account row says whether Hearth is signed in, and to which server');
+  eq([plexRow({homeHook: null}).label, plexRow({homeHook: null}).disabled], ['Plex account', undefined], 'the Plex account row is never greyed out');
+  eq(p.optionsFor('system', c0, {homeHook: null, root: 'no'}).filter((o) => o.id === 'continueWatching' || o.id === 'plexAccount').map((o) => !!o.disabled), [false, false], 'and neither row needs root');
+  eq(p.optionsFor('system', c0, {homeHook: null}, 'Plex').filter((o) => o.grouped).map((o) => o.id), ['continueWatching', 'plexAccount'], 'both rows are in the System tab\'s Plex group');
 }
 process.exit(fail ? 1 : 0);
 
