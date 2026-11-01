@@ -95,7 +95,7 @@ for (const tab of ['look', 'clock', 'wallpaper', 'system']) {
   eq(list.length >= 1 && list.length <= 30, true, `${tab} tab has ${list.length} options (a long list scrolls)`);
 }
 const look = p.optionsFor('look', c0);
-eq(look.map((o) => o.id).join(','), 'theme,iconScale,tileShape,iconStyle,iconGap,iconOpacity,rows,scrollSpeed,homeFocus,sideMargin,bottomMargin,inputStatus,showLgHome,showSystem,showLabels,labelColor,labelFont,labelSize,labelWeight,quietSec,quietDimSec,quietDimLevel,oledShift,recentsSize,resetLook', 'P35b: the Look tab lists its rows in group order');
+eq(look.map((o) => o.id).join(','), 'theme,iconScale,tileShape,iconStyle,iconGap,iconOpacity,rows,scrollSpeed,homeReveal,homeFocus,sideMargin,bottomMargin,inputStatus,showLgHome,showSystem,showLabels,labelColor,labelFont,labelSize,labelWeight,quietSec,quietDimSec,quietDimLevel,oledShift,recentsSize,resetLook', 'P35b: the Look tab lists its rows in group order');
 eq(p.applyPref(c0, 'rows', 'ok').rows, 2, 'Rows of apps: 1 -> 2');
 eq(p.applyPref(p.applyPref(c0, 'rows', 'ok'), 'rows', 'ok').rows, 1, 'and 2 -> 1');
 eq(p.applyPref(c0, 'showLabels', 'ok').showLabels, false, 'Show app names switches off');
@@ -267,6 +267,27 @@ eq(p.resetLook({...c0, clock: {...c0.clock, color: 'black', opacity: 30}}).clock
   s.loadConfig();
   eq(BK in store, false, 'P106: a fresh install has no backup');
 }
+// ---- Home reveal ----
+{
+  delete store[KEY];
+  eq([s.DEFAULT_CONFIG.homeReveal, s.loadConfig().homeReveal], ['subtle', 'subtle'], 'Home reveal: Subtle by default');
+  store[KEY] = JSON.stringify({defaultsV: s.DEFAULTS_VERSION, homeReveal: 'cascade'});
+  eq(s.loadConfig().homeReveal, 'cascade', 'a saved choice is read back');
+  store[KEY] = JSON.stringify({defaultsV: s.DEFAULTS_VERSION, homeReveal: 'sparkle'});
+  eq(s.loadConfig().homeReveal, 'subtle', 'an unknown value reads as Subtle');
+  delete store[KEY];
+  const rv = (c) => p.optionsFor('look', c).find((o) => o.id === 'homeReveal');
+  eq([rv(c0).label, rv(c0).valueText, rv(c0).stepper], ['Home reveal', 'Subtle', true], 'the Look row shows the choice and steps');
+  const steps = [];
+  let c = c0;
+  for (let i = 0; i < 3; i++) { c = p.applyPref(c, 'homeReveal', 'ok'); steps.push(c.homeReveal); }
+  eq(steps, ['cascade', 'off', 'subtle'], 'OK cycles Subtle -> Cascade -> Off -> Subtle');
+  eq([p.applyPref(c0, 'homeReveal', 'left').homeReveal, p.applyPref({...c0, homeReveal: 'off'}, 'homeReveal', 'left').homeReveal], ['off', 'off'], 'Left steps back and stops at Off');
+  eq(p.optionsFor('look', c0, undefined, 'Home row').filter((o) => o.grouped).map((o) => o.id).indexOf('homeReveal') !== -1, true, 'it is in the Home row group');
+  eq([p.resetLook({...c0, homeReveal: 'off'}).homeReveal, s.withDefaultLook({...c0, homeReveal: 'off'}).homeReveal], ['subtle', 'subtle'], 'it is a look setting: Reset look and the one-time reset bring back Subtle');
+  eq(/older TVs/.test(rv(c0).description), true, 'the description warns that Cascade may be less smooth on older TVs');
+}
+
 // ---- screen saver default (local build: Off) ----
 {
   delete store[KEY];

@@ -15,6 +15,7 @@ import {LABEL_WEIGHTS, LABEL_SIZES, isMonoStyle, effectiveIconStyle, hasLightTil
 import {CLOCK_FONT_IDS, LABEL_FONT_IDS, fontLabel, type ClockFont} from './clockfont';
 import {activeSlug, activeTheme, savedIndex, userThemeList} from './themelist';
 import {SCROLL_SPEED_IDS, scrollSpeedText} from './scrollspeed';
+import {REVEAL_STYLES} from './reveal';
 import {TILE_SHAPE_IDS, tileShapeText} from './tileshape';
 import {CLOCK_COLOR_IDS, LABEL_COLOR_IDS, iconColorValues, iconColorEffective, iconColorText, colorInfo, labelColorText, withoutInk, type ClockColor} from './clockcolor';
 import {baseName} from './wallpaper';
@@ -203,6 +204,7 @@ export function resetLook (c: UserConfig): UserConfig {
 		labelSize: 100,
 		labelWeight: 400,
 		scrollSpeed: 'medium',
+		homeReveal: DEFAULT_CONFIG.homeReveal,
 		showLabels: true,
 		minimal: false,
 		rows: 1,
@@ -347,6 +349,8 @@ const BASE_PREFS: PrefDef[] = [
 		HOME_FOCUS_IDS, (c) => c.homeFocus, (c, v) => ({...c, homeFocus: v}), homeFocusText),
 	choice('scrollSpeed', 'look',
 		SCROLL_SPEED_IDS, (c) => c.scrollSpeed, (c, v) => ({...c, scrollSpeed: v}), (v) => scrollSpeedText(v)),
+	choice('homeReveal', 'look',
+		REVEAL_STYLES, (c) => c.homeReveal, (c, v) => ({...c, homeReveal: v}), (v) => td(`reveal.${v}`)),
 	toggle('inputStatus', 'look',
 		(c) => c.inputStatus, (c, v) => ({...c, inputStatus: v})),
 	toggle('showLgHome', 'look',
@@ -543,7 +547,7 @@ const LAYOUT: [PrefTab, string, string[]][] = [
 	['look', '', ['restoreLook']],
 	['look', 'Theme', ['theme', 'themeExport', 'themeSave', 'themeRemove']],
 	['look', 'Icons', ['iconScale', 'tileShape', 'iconStyle', 'iconLight', 'iconColor', 'iconGap', 'iconOpacity']],
-	['look', 'Home row', ['rows', 'scrollSpeed', 'homeFocus', 'sideMargin', 'bottomMargin', 'inputStatus', 'showLgHome', 'showSystem']],
+	['look', 'Home row', ['rows', 'scrollSpeed', 'homeReveal', 'homeFocus', 'sideMargin', 'bottomMargin', 'inputStatus', 'showLgHome', 'showSystem']],
 	['look', 'Labels', ['showLabels', 'labelColor', 'labelFont', 'labelSize', 'labelWeight']],
 	['look', 'Quiet mode', ['quietSec', 'quietDimSec', 'quietDimLevel', 'oledShift']],
 	['look', 'Favourites', ['favSideMargin', 'favBottomMargin']],

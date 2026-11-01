@@ -10,6 +10,7 @@ import globalCss from './theme/global.css?raw';
 import {LEGACY, startLegacyVars} from './lib/cssvars';
 import {mark} from './lib/perfmarks';
 import {earlyStart} from './lib/earlystart';
+import {noteFirstFrame} from './lib/reveal';
 
 mark('script started');
 
@@ -25,5 +26,6 @@ mark('first render');
 // and each ms of our code costs about 30 ms on the TV); retries inside `earlyStart` are unchanged
 window.requestAnimationFrame(() => window.requestAnimationFrame(() => {
 	mark('first frame drawn');
+	noteFirstFrame();          // Home reveal: the clock and the rows start coming in now that the first frame is on screen
 	window.setTimeout(() => earlyStart(startConfig.replaceHome), 0);
 }));

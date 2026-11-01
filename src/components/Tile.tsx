@@ -36,6 +36,8 @@ interface Props {
 	dimmed?: boolean;
 	onHover?: () => void;
 	onActivate?: () => void;
+	/** Home reveal (Cascade): the tile comes in after this many ms (undefined: no animation of its own) */
+	revealDelay?: number;
 }
 
 /** A class so a tile can skip its redraw: moving the highlight changes two tiles, not all of them. The handlers are
@@ -48,7 +50,7 @@ export class Tile extends Component<Props> {
 		const a = this.props.model;
 		const b = next.model;
 		if (this.monoSeen !== monoVersion()) return true;
-		return this.props.focused !== next.focused || this.props.lifted !== next.lifted || this.props.checked !== next.checked || this.props.dimmed !== next.dimmed ||
+		return this.props.focused !== next.focused || this.props.lifted !== next.lifted || this.props.checked !== next.checked || this.props.dimmed !== next.dimmed || this.props.revealDelay !== next.revealDelay ||
 			a !== b && (a.key !== b.key || a.label !== b.label || a.imageUrl !== b.imageUrl || a.glyphImageUrl !== b.glyphImageUrl || a.sourceIcon !== b.sourceIcon || a.glyph !== b.glyph || a.color !== b.color || a.disconnected !== b.disconnected || a.pending !== b.pending || a.note !== b.note);
 	}
 
@@ -56,12 +58,13 @@ export class Tile extends Component<Props> {
 	private activate = () => { if (this.props.onActivate) this.props.onActivate(); };
 
 	render () {
-		const {model, focused, lifted, checked, dimmed} = this.props;
+		const {model, focused, lifted, checked, dimmed, revealDelay} = this.props;
 		this.monoSeen = monoVersion();
 		const mono = monoIconsOn() && model.imageUrl ? monoFor(model.imageUrl, this.again) : null;
-		const classes = ['tile', focused && 'tile--focused', lifted && 'tile--lifted', (dimmed || model.disconnected) && 'tile--dimmed', model.note && 'tile--noted'].filter(Boolean).join(' ');
+		const classes = ['tile', focused && 'tile--focused', lifted && 'tile--lifted', (dimmed || model.disconnected) && 'tile--dimmed', model.note && 'tile--noted', revealDelay !== undefined && 'tile--reveal'].filter(Boolean).join(' ');
+		const revealStyle = revealDelay !== undefined ? `-webkit-animation-delay:${revealDelay}ms;animation-delay:${revealDelay}ms` : undefined;
 		return (
-			<div class={classes} onMouseEnter={this.hover} onClick={this.activate}>
+			<div class={classes} style={revealStyle} onMouseEnter={this.hover} onClick={this.activate}>
 				<div class="tile__frame">
 				<div class="tile__box" style={model.color && !model.imageUrl ? {background: model.color} : undefined}>
 					{model.imageUrl
