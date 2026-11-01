@@ -8,6 +8,7 @@ import {
 	clearWallpaperCache, listImages, loadPicture, readWallpaperCache, releasePicture, createShuffleOrder,
 	wallpaperCacheId, writeWallpaperCache, takeEarlyStatic, endEarlyStatic
 } from '../lib/wallpaper';
+import {noteStill} from '../lib/videowall';
 import {t as tt} from '../i18n';
 
 /** R9 (Each visit, interval 0): away this long = a new picture on return; delay of the picture change after a restart */
@@ -193,6 +194,7 @@ export function Wallpaper ({config, opacity = 100, onProblem}: Props) {
 					failed = false;
 					if (order) order.shown(path);
 					show(loaded.url);
+					noteStill(path);                      // a moving background waits for its next poster (videowall.ts)
 					snapshot = loaded.snapshot;
 					unsaved = !!loaded.snapshot;
 					if (!cacheKnown) { saveCache(); cacheKnown = !unsaved; }    // the first picture is cached at once
@@ -220,6 +222,7 @@ export function Wallpaper ({config, opacity = 100, onProblem}: Props) {
 			const cached = takeEarlyStatic(cacheId) || readWallpaperCache(cacheId);       // main.tsx may have read it already (P56)
 			if (cached) {                                          // instant: no shell work at all
 				show(cached, true);                 // already known: no fade-in at start-up
+				if (config.mode === 'image') noteStill(config.path);
 				window.requestAnimationFrame(() => window.requestAnimationFrame(endEarlyStatic));
 				snapshot = cached;
 				unsaved = false;

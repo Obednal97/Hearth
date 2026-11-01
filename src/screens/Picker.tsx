@@ -11,12 +11,14 @@ import {
 	baseName, ensureUserFolders, INTERNAL_ROOT, joinPath, listDir, listRoots, parentPath, SAVER_FOLDER, WALLPAPER_FOLDER,
 	type DirEntry, type StorageRoot
 } from '../lib/wallpaper';
+import {isVideo, videoTitle, VIDEO_FOLDER, WALLPAPER_PICK} from '../lib/videowall';
 
 /** What the user picked. */
 export type WallpaperChoice =
 	| {mode: 'gradient'}
 	| {mode: 'image'; path: string}
 	| {mode: 'folder'; path: string; recursive?: boolean}
+	| {mode: 'video'; path: string}
 	| {mode: 'photos'};
 
 interface Props {
@@ -36,7 +38,8 @@ interface Props {
 	onClose: () => void;
 }
 
-type RowKind = 'theme' | 'gradient' | 'photos' | 'video' | 'root' | 'folder' | 'picture' | 'slideshow' | 'info' | 'retry';
+/** 'movie': one video, 'movies': every video in the folder (moving backgrounds, wallpaper picker only) */
+type RowKind = 'theme' | 'gradient' | 'photos' | 'video' | 'root' | 'folder' | 'picture' | 'slideshow' | 'movie' | 'movies' | 'info' | 'retry';
 
 interface PickerRow {
 	key: string;
@@ -86,6 +89,7 @@ const WALLPAPER_WARNING = (): string[] => [
 ];
 const WALLPAPER_HOWTO = (): string[] => [
 	tt('picker.toUseYourOwnPictures'),
+	tt('video.howTo', {path: VIDEO_FOLDER.path}),
 	tt('picker.overSshFromAComputer'),
 	tt('picker.withWebosDevManagerConnect'),
 	tt('picker.tvAddressIsTheIp')
@@ -96,11 +100,13 @@ function shortPath (path: string): string {
 	return path.length > 90 ? `…${path.slice(path.length - 89)}` : path;
 }
 
-function pictureCount (entries: DirEntry[]): number {
-	return entries.filter((e) => !e.isDir).length;
+/** `videos`: in the wallpaper picker videos are moving backgrounds, not slideshow pictures (the saver picker counts them). */
+function pictureCount (entries: DirEntry[], videos = false): number {
+	return entries.filter((e) => !e.isDir && !(videos && isVideo(e.name))).length;
 }
 
-function buildRows (path: string | null, roots: StorageRoot[], entries: DirEntry[], failed: boolean, saver = false, userFolder: StorageRoot | null = null, theme = false, language = false): PickerRow[] {
+/** `videos`: the wallpaper picker, which also offers moving backgrounds (video files, and a folder of them). */
+function buildRows (path: string | null, roots: StorageRoot[], entries: DirEntry[], failed: boolean, saver = false, userFolder: StorageRoot | null = null, theme = false, language = false, videos = false): PickerRow[] {
 	const first: PickerRow = saver
 		? {key: 'gradient', kind: 'gradient', label: tt('picker.sameAsTheWallpaper'), detail: tt('picker.theScreenSaverFollows')}
 		: {key: 'gradient', kind: 'gradient', label: tt('picker.builtInBackground'), detail: tt('picker.noPictureChangeWhich')};
@@ -116,6 +122,7 @@ function buildRows (path: string | null, roots: StorageRoot[], entries: DirEntry
 	if (path === null) {
 		const rows: PickerRow[] = top();
 		if (userFolder) rows.push({key: `root:${userFolder.path}`, kind: 'root', label: userFolder.label, detail: tt('picker.putYourOwn', {path: userFolder.path, what: language ? tt('picker.themeFiles2') : theme ? tt('picker.themeFiles') : saver ? tt('picker.picturesAndVideos') : tt('picker.pictures')}), path: userFolder.path});
+		if (videos) rows.push({key: `root:${VIDEO_FOLDER.path}`, kind: 'root', label: VIDEO_FOLDER.label, detail: tt('picker.putYourOwn', {path: VIDEO_FOLDER.path, what: tt('video.videos')}), path: VIDEO_FOLDER.path});
 		roots.forEach((r) => rows.push({key: `root:${r.path}`, kind: 'root', label: r.label, detail: r.path, path: r.path}));
 		if (!roots.some((r) => r.path !== INTERNAL_ROOT.path)) {
 			rows.push({key: 'no-usb', kind: 'info', label: tt('picker.noUsbDriveFound'), detail: tt('picker.plugOneInThen')});
@@ -123,7 +130,14 @@ function buildRows (path: string | null, roots: StorageRoot[], entries: DirEntry
 		return rows;
 	}
 	const rows: PickerRow[] = [];
-	const count = pictureCount(entries);
+	const count = pictureCount(entries, videos);
+	const movies = videos ? entries.filter((e) => !e.isDir && isVideo(e.name)).length : 0;
+	if (movies > 0) {
+		rows.push({
+			key: 'movies', kind: 'movies', label: tt('video.playFolder'),
+			detail: movies === 1 ? tt('video.oneIn', {name: baseName(path)}) : tt('video.countIn', {count: movies, name: baseName(path)})
+		});
+	}
 	if (count > 0 && !theme) {
 		rows.push({
 			key: 'slideshow', kind: 'slideshow', label: saver ? tt('picker.useThisFolderFor') : tt('picker.playThisFolderAs'),
@@ -138,7 +152,9 @@ function buildRows (path: string | null, roots: StorageRoot[], entries: DirEntry
 			detail: tt('picker.everyPictureInAnd', {baseName: baseName(path)})
 		});
 	}
-	entries.forEach((e) => rows.push({
+	entries.forEach((e) => rows.push(videos && !e.isDir && isVideo(e.name) ? {
+		key: `mov:${e.name}`, kind: 'movie', label: videoTitle(e.name), detail: tt('video.movingBackground', {file: e.name}), path: joinPath(path, e.name)
+	} : {
 		key: `${e.isDir ? 'dir' : 'pic'}:${e.name}`,
 		kind: e.isDir ? 'folder' : theme ? 'theme' : 'picture',
 		label: e.name,
@@ -162,7 +178,8 @@ export function Picker ({forIcon, forSaver, forTheme, onTheme, forLanguage, onLa
 	const [busy, setBusy] = useState(false);
 	const remembered = useRef<Record<string, number>>({});
 
-	const rows = buildRows(path, roots, entries, !loading && error !== '', !!forSaver, forIcon ? null : forLanguage ? languagesFolderRow() : forTheme ? themesFolderRow() : forSaver ? SAVER_FOLDER : WALLPAPER_FOLDER, !!forTheme || !!forLanguage, !!forLanguage).filter((r) => !forIcon || (r.kind !== 'gradient' && r.kind !== 'photos' && r.kind !== 'video' && r.kind !== 'slideshow'));
+	const forWallpaper = !forIcon && !forSaver && !forTheme && !forLanguage;
+	const rows = buildRows(path, roots, entries, !loading && error !== '', !!forSaver, forIcon ? null : forLanguage ? languagesFolderRow() : forTheme ? themesFolderRow() : forSaver ? SAVER_FOLDER : WALLPAPER_FOLDER, !!forTheme || !!forLanguage, !!forLanguage, forWallpaper).filter((r) => !forIcon || (r.kind !== 'gradient' && r.kind !== 'photos' && r.kind !== 'video' && r.kind !== 'slideshow'));
 	const pathKey = path === null ? '' : path;
 
 	// The advised folders are made when a picker for wallpaper or saver opens (once ever; a deleted folder stays deleted).
@@ -181,7 +198,7 @@ export function Picker ({forIcon, forSaver, forTheme, onTheme, forLanguage, onLa
 		} else {
 			setLoading(true);
 			setError('');
-			listDir(path, !!forSaver, !!forTheme, forLanguage ? JSON_FILE : undefined).then(
+			listDir(path, !!forSaver, !!forTheme, forLanguage ? JSON_FILE : forWallpaper ? WALLPAPER_PICK : undefined).then(
 				(list) => { if (!cancelled) { setEntries(list); setLoading(false); } },
 				() => { if (!cancelled) { setEntries([]); setError(tt('picker.couldnTReadThisFolder', {v1: whySuffix() || ''})); setLoading(false); } }
 			);
@@ -220,6 +237,8 @@ export function Picker ({forIcon, forSaver, forTheme, onTheme, forLanguage, onLa
 			case 'theme': { const pickFile = forLanguage ? onLanguage : onTheme; if (row.path && pickFile) { setBusy(true); pickFile(row.path).then(() => setBusy(false), () => setBusy(false)); } } break;
 			case 'picture': if (row.path) onChoose({mode: 'image', path: row.path}); break;
 			case 'slideshow': if (path) onChoose(row.deep ? {mode: 'folder', path, recursive: true} : {mode: 'folder', path}); break;
+			case 'movie': if (row.path) onChoose({mode: 'video', path: row.path}); break;
+			case 'movies': if (path) onChoose({mode: 'video', path}); break;
 			default: break;
 		}
 	};
@@ -239,7 +258,7 @@ export function Picker ({forIcon, forSaver, forTheme, onTheme, forLanguage, onLa
 
 	const start = clamp(index - Math.floor(VISIBLE_ROWS / 2), 0, Math.max(0, rows.length - VISIBLE_ROWS));
 	const visible = rows.slice(start, start + VISIBLE_ROWS);
-	const iconFor = (row: PickerRow) => row.kind === 'gradient' ? 'default' : row.kind === 'photos' || row.kind === 'video' ? 'slideshow' : row.kind === 'retry' ? 'info' : row.kind === 'theme' ? 'app' : row.kind === 'root' ? (row.path === INTERNAL_ROOT.path || row.path === WALLPAPER_FOLDER.path || row.path === SAVER_FOLDER.path || row.path === THEME_FOLDER || row.path === LANGUAGE_FOLDER ? 'folder' : 'drive') : row.kind;
+	const iconFor = (row: PickerRow) => row.kind === 'gradient' ? 'default' : row.kind === 'photos' || row.kind === 'video' || row.kind === 'movies' ? 'slideshow' : row.kind === 'retry' ? 'info' : row.kind === 'theme' || row.kind === 'movie' ? 'app' : row.kind === 'root' ? (row.path === INTERNAL_ROOT.path || row.path === WALLPAPER_FOLDER.path || row.path === SAVER_FOLDER.path || row.path === VIDEO_FOLDER.path || row.path === THEME_FOLDER || row.path === LANGUAGE_FOLDER ? 'folder' : 'drive') : row.kind;
 
 	return (
 		<div class="screen screen--picker">

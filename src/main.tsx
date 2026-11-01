@@ -4,6 +4,7 @@ import {App} from './app';
 import {loadConfig} from './lib/storage';
 import {applyBackground, startEarlyPhoto} from './lib/backgrounds';
 import {startEarlyStatic} from './lib/wallpaper';
+import {recallVideo} from './lib/videowall';
 import {applyTokens, THEMES} from './theme/tokens';
 import './theme/global.css';
 import globalCss from './theme/global.css?raw';
@@ -18,7 +19,9 @@ const startConfig = loadConfig();
 applyTokens(startConfig.theme);       // theme first, so there is no flash of the wrong colours
 applyBackground(startConfig.background, THEMES[startConfig.theme], startConfig.wallpaper.mode === 'gradient');
 startEarlyPhoto(startConfig.background, startConfig.wallpaper.mode);       // first slideshow photo starts loading now (P54)
-startEarlyStatic(startConfig.wallpaper.mode, startConfig.wallpaper.path, !!startConfig.wallpaper.recursive, startConfig.wallpaperOpacity);       // saved picture painted by CSS before the first render (P56)
+const startVideo = startConfig.wallpaper.mode === 'video' ? recallVideo(startConfig.wallpaper.path) : null;       // moving background: its poster is the still
+if (startConfig.wallpaper.mode === 'video') startEarlyStatic('image', startVideo ? startVideo.poster : '', false, startConfig.wallpaperOpacity);
+else startEarlyStatic(startConfig.wallpaper.mode, startConfig.wallpaper.path, !!startConfig.wallpaper.recursive, startConfig.wallpaperOpacity);       // saved picture painted by CSS before the first render (P56)
 render(<App />, document.getElementById('root')!);
 mark('first render');
 // P56: the key engine and helper calls start after the first frame is drawn (the TV answers them only from about up=46 s anyway,
