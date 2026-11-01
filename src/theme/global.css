@@ -164,6 +164,40 @@ html, body {
 /* Quiet mode: the fade goes with the apps. */
 .hearth-quiet .wallpaper__fade { opacity: 0; }
 
+/* ---------- moving background (local build, VideoWallpaper.tsx) ----------
+   The TV draws the video on its hardware plane, UNDER the page: anything opaque above it hides it. The one video element sits
+   first in <body>, behind #root; while the video wallpaper is chosen the page's own backgrounds are see-through, and while
+   frames are coming (`hearth-video-playing`) the still wallpaper (poster, picture layers, theme background) is hidden too. The
+   scrim and the bottom fade stay. */
+.hearth-video-el {
+	position: fixed;
+	left: 0; top: 0;
+	width: 1920px; height: 1080px;
+	object-fit: cover;
+	z-index: 0;
+	pointer-events: none;
+}
+html.hearth-video, html.hearth-video body { background: transparent; }
+html.hearth-video #root { position: relative; z-index: 1; }
+html.hearth-video-playing .wallpaper { background-image: none; background-color: transparent; }
+html.hearth-video-playing .wallpaper__layer { display: none; }
+/* Shade for moving backgrounds (Settings > Wallpaper): a soft glow behind the clock, date and weather (placed by app.tsx from the
+   widget's position) and a deeper bottom fade behind the apps. Quiet mode still takes the fade away with the apps. */
+html.hearth-video-shade .wallpaper::after {
+	content: '';
+	position: absolute;
+	left: 0; top: 0;
+	width: 100%; height: 100%;
+	z-index: 3;
+	pointer-events: none;
+	background: var(--video-glow, none);
+}
+html.hearth-video-shade .wallpaper__fade {
+	display: block;
+	height: 58%;
+	background: linear-gradient(to top, rgba(0, 0, 0, 0.72) 0%, rgba(0, 0, 0, 0.5) 40%, rgba(0, 0, 0, 0.18) 75%, rgba(0, 0, 0, 0) 100%);
+}
+
 /* ---------- clock ---------- */
 
 .clock {

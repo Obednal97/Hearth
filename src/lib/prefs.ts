@@ -18,6 +18,7 @@ import {SCROLL_SPEED_IDS, scrollSpeedText} from './scrollspeed';
 import {TILE_SHAPE_IDS, tileShapeText} from './tileshape';
 import {CLOCK_COLOR_IDS, LABEL_COLOR_IDS, iconColorValues, iconColorEffective, iconColorText, colorInfo, labelColorText, withoutInk, type ClockColor} from './clockcolor';
 import {baseName} from './wallpaper';
+import {CHANGE_NEVER, CHANGE_ON_HOME, VIDEO_CHANGE_VALUES, isVideoFile, videoTitle} from './videowall';
 import {SAVER_FIT_VALUES, fitText, SAVER_INTERVAL_VALUES, SAVER_POWEROFF_VALUES, powerOffText, SAVER_PHOTOS, SAVER_VIDEO, saverIsSlideshow} from './saverconfig';
 import {WEATHER_ENABLED} from '../config/features';
 import type {TempUnit} from './weather';
@@ -132,6 +133,9 @@ function withTexts (p: PrefDef): Pref {
 }
 
 const isSlideshow = (c: UserConfig): boolean => c.wallpaper.mode === 'folder' || (c.wallpaper.mode === 'gradient' && c.background === PHOTO_SHOW);
+/** moving background (local build): a video, or a folder of videos (which can change and shuffle) */
+const isVideoWall = (c: UserConfig): boolean => c.wallpaper.mode === 'video';
+const isVideoFolder = (c: UserConfig): boolean => isVideoWall(c) && !isVideoFile(c.wallpaper.path);
 const USER_THEME = 'u:';
 const delta = (press: Press): number => (press === 'left' ? -1 : 1);
 
@@ -153,6 +157,13 @@ function choice<T> (id: string, tab: PrefTab, values: readonly T[], get: (c: Use
 
 function range (id: string, tab: PrefTab, name: RangeName, get: (c: UserConfig) => number, set: (c: UserConfig, v: number) => UserConfig, text: (v: number) => string): PrefDef {
 	return choice(id, tab, rangeValues(name), get, set, text);
+}
+
+/** "Change video": Never, Each time you come Home, Every 10 minutes... */
+export function videoChangeText (value: number): string {
+	if (value === CHANGE_NEVER) return td('video.never');
+	if (value === CHANGE_ON_HOME) return td('video.onHome');
+	return td('video.every', {time: intervalText(value)});
 }
 
 export function intervalText (seconds: number): string {
@@ -402,17 +413,22 @@ const BASE_PREFS: PrefDef[] = [
 		// ← → step the built-in backgrounds (and switch back to one from a picture or slideshow); OK opens the picture picker
 		id: 'wallpaper', tab: 'wallpaper', kind: 'choice',
 		text: (c) => c.wallpaper.mode === 'image' ? td('pref.picture', {name: baseName(c.wallpaper.path)})
+			: c.wallpaper.mode === 'video' ? td('pref.moving', {name: isVideoFile(c.wallpaper.path) ? videoTitle(c.wallpaper.path) : td('video.everyIn', {name: baseName(c.wallpaper.path)})})
 			: c.wallpaper.mode === 'folder' ? td('pref.slideshow', {name: baseName(c.wallpaper.path)}) + (c.wallpaper.recursive ? td('pref.withSubfolders') : '') : td('pref.builtIn', {name: backgroundLabel(c.background)}),
 		change: (c, press) => {
 			if (press === 'ok') return c;
-			if (c.wallpaper.mode !== 'gradient') return {...c, wallpaper: {...DEFAULT_WALLPAPER, intervalSec: c.wallpaper.intervalSec, shuffle: c.wallpaper.shuffle}};
+			if (c.wallpaper.mode !== 'gradient') return {...c, wallpaper: {...DEFAULT_WALLPAPER, intervalSec: c.wallpaper.intervalSec, shuffle: c.wallpaper.shuffle, videoChange: c.wallpaper.videoChange, videoShade: c.wallpaper.videoShade}};
 			return {...c, background: stepValue(BACKGROUND_IDS, c.background, delta(press), false)};
 		}
 	},
 	{...choice('interval', 'wallpaper',
 		INTERVAL_VALUES, (c) => c.wallpaper.intervalSec, (c, v) => ({...c, wallpaper: {...c.wallpaper, intervalSec: v}}), intervalText), visible: isSlideshow},
+	{...choice('videoChange', 'wallpaper',
+		VIDEO_CHANGE_VALUES, (c) => c.wallpaper.videoChange, (c, v) => ({...c, wallpaper: {...c.wallpaper, videoChange: v}}), videoChangeText), visible: isVideoFolder},
 	{...toggle('shuffle', 'wallpaper',
-		(c) => c.wallpaper.shuffle, (c, v) => ({...c, wallpaper: {...c.wallpaper, shuffle: v}})), visible: isSlideshow},
+		(c) => c.wallpaper.shuffle, (c, v) => ({...c, wallpaper: {...c.wallpaper, shuffle: v}})), visible: (c) => isSlideshow(c) || isVideoFolder(c)},
+	{...toggle('videoShade', 'wallpaper',
+		(c) => c.wallpaper.videoShade, (c, v) => ({...c, wallpaper: {...c.wallpaper, videoShade: v}})), visible: isVideoWall},
 	choice('clockColor', 'wallpaper',
 		CLOCK_COLOR_IDS, (c) => c.clock.color, (c, v) => ({...c, clock: {...withoutInk(c.clock), color: v}}), (v: ClockColor) => colorInfo(v).label),
 	choice('fadeStrength', 'wallpaper',
@@ -553,7 +569,7 @@ const LAYOUT: [PrefTab, string, string[]][] = [
 	['clock', 'Time and date', ['clockFormat', 'showPeriod', 'showDate']],
 	['clock', 'Widget look', ['clockSize', 'clockFont', 'clockWeight', 'clockTop', 'clockLeft', 'clockAlign', 'clockColor', 'clockShadow', 'clockOpacity']],
 	['clock', 'Weather', ['weatherOn', 'weatherUnit', 'weatherCity', 'weatherCityName', 'weatherRange']],
-	['wallpaper', '', ['wallpaper', 'interval', 'shuffle', 'wallpaperOpacity', 'fadeStrength']],   // P66b: few rows, no groups (was Background and Picture)
+	['wallpaper', '', ['wallpaper', 'interval', 'videoChange', 'shuffle', 'videoShade', 'wallpaperOpacity', 'fadeStrength']],   // local build: moving background rows   // P66b: few rows, no groups (was Background and Picture)
 	['saver', '', ['screensaver', 'screensaverPictures', 'screensaverInterval', 'screensaverShuffle', 'screensaverFit', 'screensaverCare', 'screensaverDim', 'screensaverPowerOff', 'screensaverShow']],
 	['system', '', ['language', 'languageRemove']],
 	['system', 'Remote control', ['homeKey', 'remap']],

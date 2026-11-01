@@ -308,6 +308,44 @@ eq(p.resetLook({...c0, clock: {...c0.clock, color: 'black', opacity: 30}}).clock
   eq(p.optionsFor('system', c0, {homeHook: null, root: 'no'}).filter((o) => o.id === 'continueWatching' || o.id === 'plexAccount').map((o) => !!o.disabled), [false, false], 'and neither row needs root');
   eq(p.optionsFor('system', c0, {homeHook: null}, 'Plex').filter((o) => o.grouped).map((o) => o.id), ['continueWatching', 'plexAccount'], 'both rows are in the System tab\'s Plex group');
 }
+
+// ---- moving backgrounds (video wallpaper, local build) ----
+{
+  const V = '/media/developer/hearth-videos';
+  delete store[KEY];
+  eq([s.DEFAULT_WALLPAPER.videoChange, s.DEFAULT_WALLPAPER.videoShade, s.loadConfig().wallpaper.videoChange, s.loadConfig().wallpaper.videoShade], [-1, true, -1, true], 'defaults: change each time you come Home, shade On');
+  store[KEY] = JSON.stringify({defaultsV: s.DEFAULTS_VERSION, wallpaper: {mode: 'folder', path: '/x'}});
+  eq([s.loadConfig().wallpaper.videoChange, s.loadConfig().wallpaper.videoShade], [-1, true], 'saved settings without the fields read as the defaults (shade On)');
+  store[KEY] = JSON.stringify({defaultsV: s.DEFAULTS_VERSION, wallpaper: {mode: 'video', path: V, videoChange: 1800, videoShade: false, shuffle: false}});
+  const vc = s.loadConfig().wallpaper;
+  eq([vc.mode, vc.path, vc.videoChange, vc.videoShade, vc.shuffle, vc.recursive], ['video', V, 1800, false, false, false], 'a saved video folder, its Change video, Shade Off and shuffle are read back');
+  store[KEY] = JSON.stringify({defaultsV: s.DEFAULTS_VERSION, wallpaper: {mode: 'video', path: V + '/abstract-dusk.mp4', videoChange: 999, videoShade: 'no'}});
+  const vf = s.loadConfig().wallpaper;
+  eq([vf.mode, vf.path, vf.videoChange, vf.videoShade], ['video', V + '/abstract-dusk.mp4', -1, true], 'a single video is read back; an unknown Change video and a non-false shade fall back to the defaults');
+  for (const bad of ['', 'relative/x.mp4', '/bad\npath.mp4', '/' + 'a'.repeat(500)]) {
+    store[KEY] = JSON.stringify({defaultsV: s.DEFAULTS_VERSION, wallpaper: {mode: 'video', path: bad}});
+    eq(s.loadConfig().wallpaper.mode, 'gradient', `video mode with an unusable path (${JSON.stringify(bad).slice(0, 24)}) becomes the built-in background`);
+  }
+  delete store[KEY];
+
+  const vFolder = {...c0, wallpaper: {...c0.wallpaper, mode: 'video', path: V}};
+  const vFile = {...c0, wallpaper: {...c0.wallpaper, mode: 'video', path: V + '/abstract-dusk.mp4'}};
+  eq(p.optionsFor('wallpaper', vFolder).map((o) => o.id).join(','), 'wallpaper,videoChange,shuffle,videoShade,wallpaperOpacity,fadeStrength', 'a video folder shows Change video, Shuffle and the shade switch (no picture timer)');
+  eq(p.optionsFor('wallpaper', vFile).map((o) => o.id).join(','), 'wallpaper,videoShade,wallpaperOpacity,fadeStrength', 'one video: only the shade switch');
+  eq(p.optionsFor('wallpaper', c0).some((o) => o.id === 'videoShade' || o.id === 'videoChange'), false, 'no video rows without a moving background');
+  eq([p.optionsFor('wallpaper', vFile)[0].valueText, p.optionsFor('wallpaper', vFolder)[0].valueText], ['Moving: Abstract dusk', 'Moving: every video in hearth-videos'], 'the wallpaper row names the video nicely, or the folder');
+  eq(p.optionsFor('wallpaper', vFolder).find((o) => o.id === 'videoShade').value, true, 'the shade switch is On by default');
+  eq(p.applyPref(vFolder, 'videoShade', 'ok').wallpaper.videoShade, false, 'OK switches the shade off');
+  eq(p.applyPref(vFolder, 'videoShade', 'left').wallpaper.videoShade, true, 'arrows leave the switch alone');
+  const steps = [];
+  let cc = {...vFolder, wallpaper: {...vFolder.wallpaper, videoChange: 0}};
+  for (let i = 0; i < 5; i++) { steps.push(p.optionsFor('wallpaper', cc).find((o) => o.id === 'videoChange').valueText); cc = p.applyPref(cc, 'videoChange', 'ok'); }
+  eq(steps, ['Never', 'Each time you come Home', 'Every 10 minutes', 'Every 30 minutes', 'Every 1 hour'], 'Change video steps through its choices');
+  eq(cc.wallpaper.videoChange, 0, 'and OK wraps round to Never');
+  const back = p.applyPref({...vFolder, wallpaper: {...vFolder.wallpaper, videoChange: 600, videoShade: false}}, 'wallpaper', 'right');
+  eq([back.wallpaper.mode, back.wallpaper.path, back.wallpaper.videoChange, back.wallpaper.videoShade], ['gradient', '', 600, false], 'an arrow on a moving background goes back to the built-in background, keeping the video settings');
+  eq(p.resetLook(vFolder).wallpaper.mode, 'gradient', 'Reset look ends a moving background');
+}
 process.exit(fail ? 1 : 0);
 
 // ---- P35b: groups ----
