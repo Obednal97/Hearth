@@ -8,7 +8,6 @@ import {BACKGROUND_IDS} from './backgrounds';
 import {cleanEdits, type SourceEdits} from './sourceicons';
 import {CLOCK_FONT_IDS, restoreThemeFonts, type ClockFont} from './clockfont';
 import {SCROLL_SPEED_IDS, type ScrollSpeed} from './scrollspeed';
-import {DEFAULT_REVEAL, REVEAL_STYLES, type RevealStyle} from './reveal';
 
 /** thickness choices for the app names */
 export const LABEL_WEIGHTS: readonly number[] = [300, 400, 500, 600, 700];
@@ -236,8 +235,6 @@ export interface UserConfig {
 	labelWeight: number;
 	/** how fast a held Left/Right key moves along the home row */
 	scrollSpeed: ScrollSpeed;
-	/** Home reveal: how the clock and the rows appear when Hearth starts or comes back to the front */
-	homeReveal: RevealStyle;
 	/** where the highlight lands when Hearth comes back to the front (Home): the first tile, or the app or input opened last (PR #20) */
 	homeFocus: HomeFocus;
 	/** show each app's name under its icon on the home row */
@@ -372,7 +369,6 @@ export const DEFAULT_CONFIG: UserConfig = {
 	labelSize: 100,
 	labelWeight: 400,
 	scrollSpeed: 'medium',
-	homeReveal: DEFAULT_REVEAL,
 	homeFocus: 'last',                // P41c
 	showLabels: true,
 	minimal: false,
@@ -544,7 +540,6 @@ export function loadConfig (): UserConfig {
 			labelWeight: LABEL_WEIGHTS.indexOf(parsed.labelWeight as number) !== -1 ? (parsed.labelWeight as number) : 400,
 			homeFocus: parsed.homeFocus === 'first' ? 'first' : 'last',
 			scrollSpeed: SCROLL_SPEED_IDS.indexOf(parsed.scrollSpeed as ScrollSpeed) !== -1 ? (parsed.scrollSpeed as ScrollSpeed) : 'medium',
-			homeReveal: REVEAL_STYLES.indexOf(parsed.homeReveal as RevealStyle) !== -1 ? (parsed.homeReveal as RevealStyle) : DEFAULT_REVEAL,
 			showLabels: parsed.showLabels !== false,
 			minimal: parsed.minimal === true,
 			showLgHome: parsed.showLgHome !== false,

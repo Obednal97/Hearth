@@ -1,5 +1,5 @@
 import {log} from '../lib/log';
-import {useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState} from 'preact/hooks';
+import {useCallback, useEffect, useMemo, useRef, useState} from 'preact/hooks';
 import {Clock} from '../components/Clock';
 import {Row} from '../components/Row';
 import {ContinueRow} from '../components/ContinueRow';
@@ -17,7 +17,6 @@ import type {ClockConfig} from '../lib/storage';
 import type {WeatherView} from '../lib/weather';
 import {FONT, LAYOUT} from '../theme/tokens';
 import {varScope} from '../lib/cssvars';
-import {revealEndMs, revealKind, whenFirstFrame, type RevealKind, type RevealStyle} from '../lib/reveal';
 
 export interface Appearance {
 	/** icon size, % of the standard size */
@@ -30,8 +29,6 @@ export interface Appearance {
 	labelSize: number;
 	labelWeight: number;
 	scrollSpeed: ScrollSpeed;
-	/** Home reveal: how the clock and the rows appear when Hearth starts or comes back to the front */
-	homeReveal: RevealStyle;
 	/** space between the icons, % of the standard */
 	iconGap: number;
 	/** icon shape id (see lib/tileshape.ts) */
@@ -139,40 +136,6 @@ export function Home ({items: allItems, favourites, timeFormat, appearance, acti
 	const speedRef = useRef(appearance.scrollSpeed);
 	speedRef.current = appearance.scrollSpeed;
 	const shift = useShift(appearance.oledShift && !paused);
-
-	// Home reveal: on the first show the clock and rows start hidden ('pre') and come in once the first frame is drawn;
-	// after a while away they come in again (shorter). Only classes change on the screen (CSS animates opacity and
-	// transform of the clock, of each row and, for Cascade, of the tiles in view); keys work all the time.
-	const revealStyle = appearance.homeReveal;
-	const [reveal, setReveal] = useState<RevealKind | 'pre' | null>(() => (revealStyle !== 'off' && !document.hidden ? 'pre' : null));
-	const [revealSeq, setRevealSeq] = useState(0);
-	const awaySince = useRef<number | null>(document.hidden ? -1 : null);       // -1: hidden since the page started (not shown yet)
-	const revealActive = useRef(active);
-	revealActive.current = active;
-	useEffect(() => {
-		if (reveal !== 'pre') return undefined;
-		const go = () => { setReveal(revealActive.current ? 'start' : null); setRevealSeq((n) => n + 1); };
-		const cancel = whenFirstFrame(go);
-		const fallback = window.setTimeout(go, 1500);          // the first frame should come long before this; never leave Home hidden
-		return () => { cancel(); window.clearTimeout(fallback); };
-	}, [reveal === 'pre']);       // eslint-disable-line react-hooks/exhaustive-deps
-	// before the browser paints the returning page, so the reveal starts from its first frame
-	useLayoutEffect(() => {
-		if (paused) { if (awaySince.current === null) awaySince.current = Date.now(); return; }
-		const since = awaySince.current;
-		if (since === null) return;
-		awaySince.current = null;
-		const kind = revealKind({style: revealStyle, firstShow: since < 0, awayMs: Date.now() - since, quiet: quietRef.current, covered: !active});
-		setReveal(kind);
-		setRevealSeq((n) => n + 1);
-	}, [paused]);       // eslint-disable-line react-hooks/exhaustive-deps
-	useEffect(() => {
-		if (reveal !== 'start' && reveal !== 'return') return undefined;
-		const timer = window.setTimeout(() => setReveal(null), revealEndMs(reveal, revealStyle));
-		return () => window.clearTimeout(timer);
-	}, [revealSeq]);       // eslint-disable-line react-hooks/exhaustive-deps
-	const cascade = revealStyle === 'cascade' && (reveal === 'start' || reveal === 'return') ? reveal : undefined;
-	const revealClass = reveal ? ` reveal--${reveal}${revealStyle === 'cascade' ? ' reveal--cascade' : ''}` : '';
 
 	// Quiet mode: hide the apps after quietSec without a key; the first key (or pointer move) brings them back and is used up.
 	useEffect(() => {
@@ -337,7 +300,7 @@ export function Home ({items: allItems, favourites, timeFormat, appearance, acti
 	const classes = [rowVars.cls, 'rows', !appearance.showLabels && 'rows--no-labels', sizes.length > 1 && 'rows--multi', favN > 0 && 'rows--fav', favN > 0 && open && 'rows--fav-open', favN > 0 && !open && everOpen.current && 'rows--fav-shut', appearance.iconOpacity < 100 && 'rows--dim', quiet && 'rows--quiet', labelColorValue(appearance.labelColor) && 'rows--label-color', appearance.labelFont !== 'default' && 'rows--label-font', appearance.labelWeight !== 400 && 'rows--label-weight', appearance.tileShape !== 'rounded' && `rows--shape-${appearance.tileShape}`].filter(Boolean).join(' ');
 
 	return (
-		<div class={`screen${active ? '' : ' screen--away'}${shift ? ' screen--shift' : ''}${shiftVars.cls ? ' ' + shiftVars.cls : ''}${revealClass}`} style={shiftVars.css || undefined}>
+		<div class={`screen${active ? '' : ' screen--away'}${shift ? ' screen--shift' : ''}${shiftVars.cls ? ' ' + shiftVars.cls : ''}`} style={shiftVars.css || undefined}>
 			{appearance.clock.show && <Clock now={now} format={timeFormat} config={appearance.clock} weather={weather} />}
 			<div class={classes} style={rowStyle}>
 				{cw.length > 0 && (
@@ -365,7 +328,6 @@ export function Home ({items: allItems, favourites, timeFormat, appearance, acti
 							tileGap={tileGap}
 							viewportWidth={LAYOUT.screenWidth - 2 * sideOf(r)}
 							sideMargin={favN > 0 ? sideOf(r) : undefined}
-							cascade={cascade}
 						/>
 					);
 				})}

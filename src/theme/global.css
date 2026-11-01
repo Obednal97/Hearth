@@ -864,25 +864,3 @@ html, body {
 }
 .plex-link__char--empty { color: var(--color-text-muted); }
 .plex-link__status { color: var(--color-text-primary); }
-
-/* ---------- Home reveal (lib/reveal.ts, Home.tsx) ---------- */
-/* The clock fades in, the rows rise into place, then Continue Watching. Only opacity and transform, on the clock and on
-   each row (Cascade: each tile in view), never on .rows itself, which carries quiet mode, the favourites fade and the
-   OLED shift. The clock keeps its own transform (position, OLED shift): it only fades. Keys work throughout. */
-.reveal--pre .clock, .reveal--pre .rows .row { opacity: 0; }
-.reveal--start .clock { -webkit-animation: hearth-reveal-fade 200ms ease-out both; animation: hearth-reveal-fade 200ms ease-out both; }
-.reveal--return .clock { -webkit-animation: hearth-reveal-fade 120ms ease-out both; animation: hearth-reveal-fade 120ms ease-out both; }
-.reveal--start .rows .row { -webkit-animation: hearth-reveal-rise 230ms ease-out 80ms both; animation: hearth-reveal-rise 230ms ease-out 80ms both; }
-.reveal--return .rows .row { -webkit-animation: hearth-reveal-rise-short 130ms ease-out 40ms both; animation: hearth-reveal-rise-short 130ms ease-out 40ms both; }
-.reveal--start .rows .continue { -webkit-animation-duration: 190ms; animation-duration: 190ms; -webkit-animation-delay: 160ms; animation-delay: 160ms; }
-.reveal--return .rows .continue { -webkit-animation-duration: 120ms; animation-duration: 120ms; -webkit-animation-delay: 80ms; animation-delay: 80ms; }
-/* Cascade: the app rows stay put and their tiles in view come in one by one (delays set on each tile) */
-.reveal--cascade .rows .row:not(.continue) { -webkit-animation: none; animation: none; }
-.reveal--start .tile--reveal { -webkit-animation: hearth-reveal-rise 200ms ease-out both; animation: hearth-reveal-rise 200ms ease-out both; }
-.reveal--return .tile--reveal { -webkit-animation: hearth-reveal-rise-short 130ms ease-out both; animation: hearth-reveal-rise-short 130ms ease-out both; }
-@-webkit-keyframes hearth-reveal-fade { from { opacity: 0; } }
-@keyframes hearth-reveal-fade { from { opacity: 0; } }
-@-webkit-keyframes hearth-reveal-rise { from { opacity: 0; -webkit-transform: translate3d(0, 20px, 0); transform: translate3d(0, 20px, 0); } to { opacity: 1; -webkit-transform: translate3d(0, 0, 0); transform: translate3d(0, 0, 0); } }
-@keyframes hearth-reveal-rise { from { opacity: 0; transform: translate3d(0, 20px, 0); } to { opacity: 1; transform: translate3d(0, 0, 0); } }
-@-webkit-keyframes hearth-reveal-rise-short { from { opacity: 0; -webkit-transform: translate3d(0, 10px, 0); transform: translate3d(0, 10px, 0); } to { opacity: 1; -webkit-transform: translate3d(0, 0, 0); transform: translate3d(0, 0, 0); } }
-@keyframes hearth-reveal-rise-short { from { opacity: 0; transform: translate3d(0, 10px, 0); } to { opacity: 1; transform: translate3d(0, 0, 0); } }
