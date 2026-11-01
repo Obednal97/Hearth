@@ -347,7 +347,7 @@ export const DEFAULT_CONFIG: UserConfig = {
 	keepRelaunch: false,
 	takeoverHome: false,
 	samHome: false,
-	screensaver: true,                // P41c: on by default (rooted TVs; a failed set-up turns it off with a message)
+	screensaver: false,               // local build: off by default (upstream P41c has it on; with a 5-minute power-off that switched the TV off soon after start)
 	screensaverSource: '@video',
 	screensaverInterval: 60,
 	screensaverShuffle: true,
@@ -524,7 +524,7 @@ export function loadConfig (): UserConfig {
 			preloadOff: typeof parsed.preloadOff === 'number' && parsed.preloadOff > 0 && parsed.preloadOff < 500 ? Math.floor(parsed.preloadOff) : 0,
 			takeoverHome: parsed.takeoverHome === true,
 			samHome: parsed.samHome === true,
-			screensaver: parsed.screensaver !== false,        // P41c: a saved setting without the field (updaters) reads as On
+			screensaver: parsed.screensaver === true,         // local build: a saved setting without the field (updaters) reads as Off; an explicit On stays
 			screensaverSource: typeof parsed.screensaverSource !== 'string' ? DEFAULT_CONFIG.screensaverSource : (parsed.screensaverSource.charAt(0) === '/' || /^@(photos|video|photo:photo-[0-9][0-9])$/.test(parsed.screensaverSource)) && parsed.screensaverSource.length < 400 ? parsed.screensaverSource : '',   // P41c: the built-in choices (@photos, @video) were dropped on reload before
 			screensaverInterval: typeof parsed.screensaverInterval === 'number' && parsed.screensaverInterval >= 5 && parsed.screensaverInterval <= 3600 ? Math.round(parsed.screensaverInterval) : 60,
 			screensaverShuffle: parsed.screensaverShuffle !== false,
