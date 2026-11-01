@@ -31,6 +31,8 @@ import {HEARTH_VERSION} from './config/version';
 import {autoIcon, setEdit, type SourceEdit} from './lib/sourceicons';
 import {Toast, type ToastMessage} from './components/Toast';
 import {PhotoShow, Wallpaper} from './components/Wallpaper';
+import {VideoWallpaper} from './components/VideoWallpaper';
+import {glowBackground, recallVideo, type VideoItem} from './lib/videowall';
 import type {TileModel} from './components/Tile';
 import {forgetTv, pairWithTv} from './lib/ssap';
 import {NOROOT_MOCK} from './config/features';
@@ -559,6 +561,34 @@ export function App () {
 
 	// The bundled-photo slideshow is drawn (and timed) by PhotoShow; it pauses while the launcher is in the background.
 	const photoShow = config.background === PHOTO_SHOW && config.wallpaper.mode === 'gradient';
+
+	// Moving background (local build): the video plays behind the page (VideoWallpaper); the still wallpaper underneath is the
+	// poster of the video on screen (a picture of the same name), loaded like an own picture, else the theme background. The
+	// video element is made only after the first frame, and only with this wallpaper chosen (nothing at all happens otherwise).
+	const videoMode = config.wallpaper.mode === 'video';
+	const videoChoice = videoMode ? config.wallpaper.path : '';
+	const videoRecalled = useMemo(() => (videoChoice ? recallVideo(videoChoice) : null), [videoChoice]);
+	const [videoPick, setVideoPick] = useState<{choice: string; item: VideoItem | null} | null>(null);
+	const videoItem = videoPick && videoPick.choice === videoChoice ? videoPick.item : videoRecalled;
+	const onVideo = useCallback((item: VideoItem | null) => setVideoPick({choice: videoChoice, item}), [videoChoice]);
+	const videoChosenAt = useRef(0);
+	const [videoAfterFrame, setVideoAfterFrame] = useState(false);
+	useEffect(() => {
+		if (!videoMode || videoAfterFrame) return undefined;
+		let second = 0;
+		const first = window.requestAnimationFrame(() => { second = window.requestAnimationFrame(() => setVideoAfterFrame(true)); });
+		return () => { window.cancelAnimationFrame(first); window.cancelAnimationFrame(second); };
+	}, [videoMode]);
+	const stillWallpaper = videoMode
+		? (videoItem && videoItem.poster ? {...config.wallpaper, mode: 'image' as const, path: videoItem.poster, recursive: false, fit: 'fill' as const} : {...config.wallpaper, mode: 'gradient' as const, path: '', recursive: false, fit: 'fill' as const})
+		: config.wallpaper;
+	// The shade for moving backgrounds: a soft glow behind the clock (following its place) and a stronger bottom fade (global.css).
+	const videoShade = videoMode && config.wallpaper.videoShade;
+	const glow = videoShade ? glowBackground(config.clock) : '';
+	useEffect(() => {
+		document.documentElement.classList.toggle('hearth-video-shade', videoShade);
+		if (videoShade) setRootVars({'--video-glow': glow});
+	}, [videoShade, glow]);
 
 	// The wallpaper stays loaded for a while after the launcher goes to the background, so pressing Home
 	// again finds it ready (no fade-in). After that it is released to give the memory back.
@@ -1422,13 +1452,14 @@ export function App () {
 	const onAdjust = useCallback((optionId: string, direction: -1 | 1) => changeOption(optionId, direction < 0 ? 'left' : 'right'), [changeOption]);
 
 	const onChooseWallpaper = useCallback((choice: WallpaperChoice) => {
-		const keep = {intervalSec: config.wallpaper.intervalSec, shuffle: config.wallpaper.shuffle, fit: config.wallpaper.fit};
+		const keep = {intervalSec: config.wallpaper.intervalSec, shuffle: config.wallpaper.shuffle, fit: config.wallpaper.fit, videoChange: config.wallpaper.videoChange, videoShade: config.wallpaper.videoShade};
 		const wallpaper = choice.mode === 'gradient' || choice.mode === 'photos'
 			? {...DEFAULT_WALLPAPER, ...keep}
 			: {mode: choice.mode, path: choice.path, ...keep, recursive: choice.mode === 'folder' && !!choice.recursive};
+		if (choice.mode === 'video') { videoChosenAt.current = Date.now(); log(`video: chosen ${choice.path}`); }
 		updateConfig({...config, wallpaper, background: choice.mode === 'photos' ? PHOTO_SHOW : config.background});
 		setScreen('settings');
-		showToast(choice.mode === 'photos' ? tt('app.startingThePhotoSlideshow') : choice.mode === 'gradient' ? tt('app.builtInBackgroundRestored') : choice.mode === 'image' ? tt('app.loadingWallpaper') : tt('app.startingSlideshow'));
+		showToast(choice.mode === 'photos' ? tt('app.startingThePhotoSlideshow') : choice.mode === 'gradient' ? tt('app.builtInBackgroundRestored') : choice.mode === 'image' ? tt('app.loadingWallpaper') : choice.mode === 'video' ? tt('app.startingMovingBackground') : tt('app.startingSlideshow'));
 	}, [config, showToast]);
 
 	const onChooseSaver = useCallback((choice: WallpaperChoice) => {
@@ -1681,7 +1712,8 @@ export function App () {
 	return (
 		<>
 			{wallpaperOn && photoShow && <PhotoShow fit={config.wallpaper.fit === 'fit'} intervalSec={config.wallpaper.intervalSec} shuffle={config.wallpaper.shuffle} paused={asleep} />}
-			{wallpaperOn && !photoShow && <Wallpaper config={config.wallpaper} opacity={config.wallpaperOpacity} onProblem={(text) => showToast(text, 'error')} />}
+			{wallpaperOn && !photoShow && <Wallpaper config={stillWallpaper} opacity={config.wallpaperOpacity} onProblem={(text) => { if (videoMode) log(`video: poster: ${text}`); else showToast(text, 'error'); }} />}
+			{videoMode && videoAfterFrame && <VideoWallpaper choice={videoChoice} change={config.wallpaper.videoChange} shuffle={config.wallpaper.shuffle} current={videoItem} onCurrent={onVideo} chosenAt={videoChosenAt.current} onProblem={(text) => showToast(text, 'error')} />}
 			{/* Home stays mounted under the other screens so it keeps its focus position. */}
 			<Home items={homeItems} favourites={config.favourites} timeFormat={timeFormat} appearance={appearance} active={screen === 'home' && !menu && !recents && !notice} paused={asleep} onActivate={onActivate} onLongPress={onLongPress} onDeadDown={config.hideSettings && !tileBack ? showTileAgain : undefined} onBack={openRecents} wake={wakes} homeKey={config.homeFocus === 'last' && !bootFirst.current ? lastOpened.current : null} focus={focus} weather={weatherLine} moveMode={moveMode} tileKeys={keysRef.current} onMovePick={onMovePick} onMoveStep={onMoveStep} onMoveExit={onMoveExit} continueItems={showContinue ? continueItems : undefined} onContinue={onContinue} />
 			{recents && screen === 'home' && <Recents icons={recentIcons} edits={config.appEdits} inputs={allInputs} sourceEdits={config.sourceEdits} width={config.recentsW} height={config.recentsH} onClose={closeRecents} onOpen={noteOpened} onToast={showToast} />}
