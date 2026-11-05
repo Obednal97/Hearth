@@ -146,6 +146,7 @@ eq(h.ptr('mousemove', 3, 4), false, 'pointer: nothing is used up while off');
 // ---- the setting ----
 eq(sb.STANDBY_MINUTES, [0, 1, 2, 5, 10], 'setting: Off, 1, 2, 5, 10 minutes');
 eq(sb.STANDBY_MINUTES.indexOf(sb.STANDBY_DEFAULT) !== -1, true, 'setting: the default is one of the choices');
+eq(sb.STANDBY_DEFAULT, 2, 'setting: this local build defaults to 2 minutes (upstream: Off)');
 eq([sb.standbyMinutes(5), sb.standbyMinutes(0), sb.standbyMinutes(3), sb.standbyMinutes('2'), sb.standbyMinutes(undefined)], [5, 0, sb.STANDBY_DEFAULT, sb.STANDBY_DEFAULT, sb.STANDBY_DEFAULT], 'setting: saved values are checked');
 const KEY = 'customlauncher-config-v1';
 eq(s.loadConfig().standbyMin, sb.STANDBY_DEFAULT, 'setting: a fresh install gets the default');

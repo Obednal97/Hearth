@@ -7,7 +7,7 @@
 export const STANDBY_MINUTES: readonly number[] = [0, 1, 2, 5, 10];
 
 /** The default for fresh installs and for saved settings without the field. */
-export const STANDBY_DEFAULT = 0;
+export const STANDBY_DEFAULT = 2;          // local build: 2 minutes (upstream: 0, Off)
 
 /** How long the fade out and the way back take (keep in sync with global.css). */
 export const STANDBY_FADE_MS = 4000;
