@@ -1,5 +1,4 @@
 import {HomeKey} from './screens/HomeKey';
-import {Updates} from './screens/Updates';
 import {ExtraKeys} from './screens/ExtraKeys';
 import {setMonoIcons} from './lib/monoicon';
 import {useCallback, useEffect, useMemo, useRef, useState} from 'preact/hooks';
@@ -1253,7 +1252,6 @@ export function App () {
 			else if (optionId === 'homeKey') askRemoteWarning(() => setScreen('homekey'));
 			else if (optionId === 'remap') askRemoteWarning(() => setScreen('extrakeys'));
 			else if (optionId === 'preload') setScreen('preload');
-			else if (optionId === 'updates') setScreen('updates');
 			else if (optionId === 'powerOnApp') {
 				if (systemInfo.powerOn && systemInfo.powerOn.foreign) showToast(powerOnMessage('foreign'), 'error');
 				else if (LEGACY && !bootWarned.current) {       // L1: webOS 3 only (legacy bundle)
@@ -1761,7 +1759,7 @@ export function App () {
 			{screen === 'picker' && <Picker onChoose={onChooseWallpaper} onPreview={setWallPreview} onClose={() => setScreen('settings')} />}
 			{screen === 'preload' && <Preload apps={apps} onClose={() => setScreen('settings')} onChanged={(n) => setConfig((c) => { if (c.preloadOff === n) return c; const next = {...c, preloadOff: n}; saveConfig(next); return next; })} onToast={showToast} />}
 			{screen === 'remote' && <RemoteButtons remap={config.remap} targets={remapTargets} captured={captured} busy={remapBusy} onSwitch={onRemapSwitch} onAssign={onRemapAssign} onCapture={onRemapCapture} onClose={() => setScreen('extrakeys')} />}
-			{screen === 'updates' && <Updates debug={config.showDebug} paused={!!notice} notify={setNotice} closeNotice={() => setNotice(null)} onClose={() => setScreen('settings')} />}
+			{/* local build: no Check for updates screen (upstream's installer would replace this build, which carries our own commits) */}
 			{screen === 'extrakeys' && <ExtraKeys targets={remapTargets} model={config.remoteModel} onModel={onRemoteModel} onOtherMethod={() => setScreen('remote')} paused={!!notice} onLgHomeCheck={askLgHome} onClose={() => setScreen('settings')} onToast={showToast} />}
 			{screen === 'themes' && <Picker forTheme onChoose={() => undefined} onClose={() => setScreen('settings')} onTheme={(path) => loadThemeZip(path, apps.map((a) => a.id)).then((outcome: LoadOutcome) => {
 				if (outcome.ok) { setScreen('settings'); afterTheme(outcome, tt('app.themeLoaded')); }
