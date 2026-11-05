@@ -484,7 +484,9 @@ const BASE_PREFS: PrefDef[] = [
 	{
 		// 2.0.3 R2-a: press-only update check (opens its own screen); the row shows the version in use
 		id: 'updates', tab: 'system', kind: 'action',
-		text: () => HEARTH_VERSION
+		text: () => HEARTH_VERSION,
+		// local build: never shown. This build carries our own commits; upstream's installer would replace it with the plain release.
+		visible: () => false
 	},
 	{
 		id: 'homeKey', tab: 'system', kind: 'action',
