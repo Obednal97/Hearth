@@ -30,6 +30,7 @@ import {LANGUAGES, PACK_ID, languageLabel, languageOf} from './languages';
 import {hasPack, packName} from '../i18n/pack';
 import {td} from '../i18n';
 import {HEARTH_VERSION} from '../config/version';
+import {UPDATES_ENABLED} from '../config/local';
 
 export type PrefTab = 'look' | 'clock' | 'wallpaper' | 'saver' | 'system';
 
@@ -469,7 +470,8 @@ const BASE_PREFS: PrefDef[] = [
 	{
 		// 2.0.3 R2-a: press-only update check (opens its own screen); the row shows the version in use
 		id: 'updates', tab: 'system', kind: 'action',
-		text: () => HEARTH_VERSION
+		text: () => HEARTH_VERSION,
+		visible: () => UPDATES_ENABLED          // local build: hidden (config/local.ts)
 	},
 	{
 		id: 'homeKey', tab: 'system', kind: 'action',

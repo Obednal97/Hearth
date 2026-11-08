@@ -21,6 +21,7 @@ import {GUARD_TESTS} from './probeguard';
 import {STANDIN_TESTS} from './probestandin';
 import {NOROOT_TESTS} from './probenoroot';
 import {INSTALL_TESTS} from './probeinstall';
+import {UPDATES_ENABLED} from '../config/local';
 
 export interface ProbeResult {
 	ok: boolean;
@@ -201,7 +202,7 @@ function testOrder (t: ProbeTest): [number, string] {
 	return m ? [parseInt(m[1], 10), m[2]] : [9999, ''];
 }
 
-export const PROBE_TESTS: ProbeTest[] = BASE_TESTS.concat(SSAP_TESTS, KEY_TESTS, PERF_TESTS, MORE_TESTS, SAM_TESTS, HOME_TESTS, STORAGE_TESTS, GUARD_TESTS, STANDIN_TESTS, NOROOT_TESTS, INSTALL_TESTS)
+export const PROBE_TESTS: ProbeTest[] = BASE_TESTS.concat(SSAP_TESTS, KEY_TESTS, PERF_TESTS, MORE_TESTS, SAM_TESTS, HOME_TESTS, STORAGE_TESTS, GUARD_TESTS, STANDIN_TESTS, NOROOT_TESTS, UPDATES_ENABLED ? INSTALL_TESTS : [])
 	.map((t, i) => ({t, i, k: testOrder(t)}))
 	.sort((a, b) => a.k[0] - b.k[0] || (a.k[1] < b.k[1] ? -1 : a.k[1] > b.k[1] ? 1 : 0) || a.i - b.i)
 	.map((x) => x.t);

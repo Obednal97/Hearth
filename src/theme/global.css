@@ -867,3 +867,7 @@ html, body {
 .upd__fill { height: 100%; border-radius: 7px; background: var(--color-text-primary); transition: width 0.4s linear; }
 .upd__step { font-size: var(--font-option-description); color: var(--color-text-muted); }
 .upd__line::before { content: ''; position: absolute; left: 4px; top: 0.55em; width: 9px; height: 9px; border-radius: 50%; background: var(--color-text-secondary); }
+
+/* ---------- local build ---------- */
+/* the line under every Settings and picker title: was 19 px and muted, too small from the sofa */
+.settings__hint { font-size: 26px; color: var(--color-text-secondary); }

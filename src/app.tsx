@@ -1,5 +1,6 @@
 import {HomeKey} from './screens/HomeKey';
 import {Updates} from './screens/Updates';
+import {UPDATES_ENABLED} from './config/local';
 import {ExtraKeys} from './screens/ExtraKeys';
 import {setMonoIcons} from './lib/monoicon';
 import {useCallback, useEffect, useMemo, useRef, useState} from 'preact/hooks';
@@ -1661,7 +1662,7 @@ export function App () {
 			{screen === 'picker' && <Picker onChoose={onChooseWallpaper} onClose={() => setScreen('settings')} />}
 			{screen === 'preload' && <Preload apps={apps} onClose={() => setScreen('settings')} onChanged={(n) => setConfig((c) => { if (c.preloadOff === n) return c; const next = {...c, preloadOff: n}; saveConfig(next); return next; })} onToast={showToast} />}
 			{screen === 'remote' && <RemoteButtons remap={config.remap} targets={remapTargets} captured={captured} busy={remapBusy} onSwitch={onRemapSwitch} onAssign={onRemapAssign} onCapture={onRemapCapture} onClose={() => setScreen('extrakeys')} />}
-			{screen === 'updates' && <Updates debug={config.showDebug} paused={!!notice} notify={setNotice} closeNotice={() => setNotice(null)} onClose={() => setScreen('settings')} />}
+			{UPDATES_ENABLED && screen === 'updates' && <Updates debug={config.showDebug} paused={!!notice} notify={setNotice} closeNotice={() => setNotice(null)} onClose={() => setScreen('settings')} />}
 			{screen === 'extrakeys' && <ExtraKeys targets={remapTargets} model={config.remoteModel} onModel={onRemoteModel} onOtherMethod={() => setScreen('remote')} paused={!!notice} onLgHomeCheck={askLgHome} onClose={() => setScreen('settings')} onToast={showToast} />}
 			{screen === 'themes' && <Picker forTheme onChoose={() => undefined} onClose={() => setScreen('settings')} onTheme={(path) => loadThemeZip(path, apps.map((a) => a.id)).then((outcome: LoadOutcome) => {
 				if (outcome.ok) { setScreen('settings'); afterTheme(outcome, tt('app.themeLoaded')); }
