@@ -65,11 +65,13 @@ export interface SystemInfo {
 	/** free memory in MB (-1: could not be read; undefined: not read yet) */
 	/** what the TV said when it could not (shown under a greyed-out row) */
 	rootDetail?: string;
+	/** local build: the Plex server Continue Watching is read from (null: not signed in; undefined: not known yet) */
+	plexServer?: string | null;
 }
 
 /** The options that run shell commands, so they can't work without root. */
 /** System rows that stay while root has failed (P83). */
-export const NO_ROOT_ROWS = ['updates', 'language', 'languageRemove', 'tvApps', 'noRootGuide', 'showDebug'];
+export const NO_ROOT_ROWS = ['updates', 'language', 'languageRemove', 'tvApps', 'noRootGuide', 'continueWatching', 'plexAccount', 'showDebug'];     // Continue Watching (local build): Plex works over the network
 export const ROOT_OPTIONS = ['remap', 'replaceHome', 'samHome', 'homeApp', 'homeKey', 'preload', 'keepReady', 'keepRelaunch', 'tvInput', 'powerOnApp', 'lgLogo', 'quietPowerOff', 'screensaver', 'screensaverPictures', 'screensaverInterval', 'screensaverShuffle', 'screensaverCare', 'screensaverFit', 'screensaverDim', 'screensaverPowerOff', 'screensaverShow', 'undoAll'];
 
 
@@ -576,6 +578,13 @@ const BASE_PREFS: PrefDef[] = [
 		text: () => td('act.remove'),
 		shownWith: () => hasPack()
 	},
+	// local build: Continue Watching (Plex)
+	toggle('continueWatching', 'system',
+		(c) => c.continueWatching, (c, v) => ({...c, continueWatching: v})),
+	{
+		id: 'plexAccount', tab: 'system', kind: 'action',
+		text: (_c, info) => (info && info.plexServer ? td('pref.plexSignedIn', {server: info.plexServer}) : td('pref.plexNotSignedIn'))
+	},
 	toggle('showDebug', 'system',
 		(c) => c.showDebug, (c, v) => ({...c, showDebug: v})),
 	{
@@ -610,6 +619,7 @@ const LAYOUT: [PrefTab, string, string[]][] = [
 	['system', 'Remote control', ['homeKey', 'remap']],
 	['system', 'TV start', ['tvApps', 'noRootGuide', 'tvInput', 'replaceHome', 'samHome', 'powerOnApp', 'lgLogo', 'homeApp']],
 	['system', 'Memory', ['preload', 'keepReady', 'keepRelaunch']],
+	['system', 'Plex', ['continueWatching', 'plexAccount']],          // local build
 	['system', '', ['showDebug', 'undoAll']]
 ];
 
