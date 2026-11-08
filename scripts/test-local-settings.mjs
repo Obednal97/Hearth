@@ -72,5 +72,19 @@ eq(p.optionsFor('system', c0, {homeHook: null}, 'Plex').filter((o) => o.grouped)
 	eq(p.resetLook(vFolder).wallpaper.mode, 'gradient', 'Reset look ends a moving background');
 }
 
+// ---- quiet mode: dim style "Fade the widgets" ----
+{
+	eq([c0.quietFade, s.loadConfig().quietFade], [false, false], 'dim style is Darken on a fresh install');
+	store[KEY] = JSON.stringify({defaultsV: s.DEFAULTS_VERSION, quietFade: true, quietSec: 120, quietDimSec: 120, standbyMin: 2});
+	const q = s.loadConfig();
+	eq([q.quietFade, q.quietSec, q.quietDimSec, 'standbyMin' in q], [true, 120, 120, false], 'Fade and up to 120 s are read back; the old standby setting is dropped');
+	for (const k of Object.keys(store)) delete store[k];
+	const ids = (c) => p.optionsFor('look', c).map((o) => o.id).filter((id) => id.indexOf('quiet') === 0).join(',');
+	const fade = p.applyPref(c0, 'quietFade', 'ok');
+	eq([p.optionsFor('look', c0).find((o) => o.id === 'quietFade').valueText, fade.quietFade, p.optionsFor('look', fade).find((o) => o.id === 'quietFade').valueText], ['Darken', true, 'Fade the widgets'], 'OK switches Darken to Fade the widgets');
+	eq([ids(c0), ids(fade), ids({...c0, quietDimSec: 0})], ['quietSec,quietDimSec,quietFade,quietDimLevel,quietPowerOff', 'quietSec,quietDimSec,quietFade,quietPowerOff', 'quietSec,quietDimSec,quietPowerOff'], 'the style shows with a dim stage; the strength only for Darken');
+	eq(p.resetLook(fade).quietFade, false, 'Reset look goes back to Darken');
+}
+
 console.log(fail ? `${fail} FAILED` : 'all ok');
 process.exit(fail ? 1 : 0);

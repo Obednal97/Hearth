@@ -44,9 +44,9 @@ export const RANGES = {
 	iconOpacity:  {min: 30,  max: 100, step: 10, def: 100},   // % (how solid the icons of the home row are)
 	iconGap:      {min: 50,  max: 200, step: 10, def: 100},   // % of the standard space between the home row's icons
 	wallpaperOpacity: {min: 30, max: 100, step: 10, def: 100}, // % (how solid the picture is; lower lets the background show through)
-	quietSec:     {min: 0,   max: 60,  step: 10, def: 20},     // seconds without a key before the apps hide (0 = off)
+	quietSec:     {min: 0,   max: 120, step: 10, def: 20},     // seconds without a key before the apps hide (0 = off); local build: max 120 (was 60)
 	quietDimLevel: {min: 10, max: 80,  step: 10, def: 30},    // % darkness of the quiet-mode dim
-	quietDimSec:  {min: 0,   max: 60,  step: 10, def: 20},     // seconds after the apps hide before the screen dims (0 = off)
+	quietDimSec:  {min: 0,   max: 120, step: 10, def: 20},     // seconds after the apps hide before the screen dims (0 = off); local build: max 120 (was 60)
 	fadeStrength: {min: 0,   max: 100, step: 5,  def: 30},    // % darkness of the bottom fade over the wallpaper (0 = off)
 	fadeHeight:   {min: 20,  max: 100, step: 5,  def: 50},    // % of the screen height the bottom fade covers
 	recentsW:     {min: 30,  max: 100, step: 5,  def: 60},    // % of the screen width of the Recent apps panel
@@ -246,6 +246,8 @@ export interface UserConfig {
 	quietDimLevel: number;
 	/** quiet mode: seconds after the apps hide before the TV is switched off (0 = never; rooted TVs only, QP) */
 	quietPowerOff: number;
+	/** local build: quiet mode's dim stage fades the widgets (clock dimmed, date and weather gone) instead of darkening the screen */
+	quietFade: boolean;
 	/** OLED shift: the clock and the apps move a few pixels now and then so nothing burns in */
 	oledShift: boolean;
 	/** colour of the names under the icons: 'theme' or a plain colour id (see LABEL_COLOR_IDS) */
@@ -395,6 +397,7 @@ export const DEFAULT_CONFIG: UserConfig = {
 	quietDimSec: RANGES.quietDimSec.def,
 	quietDimLevel: RANGES.quietDimLevel.def,
 	quietPowerOff: 0,                  // QP: never (additive; saved settings keep working)
+	quietFade: false,
 	oledShift: true,
 	labelColor: 'theme',
 	labelFont: 'default',
@@ -570,6 +573,7 @@ export function loadConfig (): UserConfig {
 			quietDimSec: ranged(parsed.quietDimSec, 'quietDimSec'),
 			quietDimLevel: ranged(parsed.quietDimLevel, 'quietDimLevel'),
 			quietPowerOff: typeof parsed.quietPowerOff === 'number' && parsed.quietPowerOff >= 0 && parsed.quietPowerOff <= 86400 ? Math.round(parsed.quietPowerOff) : 0,
+			quietFade: parsed.quietFade === true,
 			screensaverDimLevel: typeof parsed.screensaverDimLevel === 'number' && parsed.screensaverDimLevel >= 10 && parsed.screensaverDimLevel <= 80 ? Math.round(parsed.screensaverDimLevel / 10) * 10 : 40,
 			oledShift: parsed.oledShift !== false,
 			labelColor: LABEL_COLOR_IDS.indexOf(parsed.labelColor as string) !== -1 ? (parsed.labelColor as string) : 'theme',

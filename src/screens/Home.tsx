@@ -53,6 +53,8 @@ export interface Appearance {
 	quietDimLevel: number;
 	/** QP: seconds after the apps hide before the TV is switched off (0 = never; rooted TVs) */
 	quietPowerOff: number;
+	/** local build: the dim stage fades the widgets instead (CSS: `body.hearth-fade`) */
+	quietFade?: boolean;
 	/** OLED shift on */
 	oledShift: boolean;
 	/** px at 1080p */
@@ -305,11 +307,11 @@ export function Home ({items: allItems, favourites, timeFormat, appearance, acti
 
 	// The dimmed screen: a dark layer over everything (CSS: `body.hearth-dim::after`, only exists while dimmed).
 	useEffect(() => {
-		const cls = `hearth-dim-${appearance.quietDimLevel}`;
-		document.body.classList.toggle('hearth-dim', dimmed);
+		const cls = appearance.quietFade ? 'hearth-fade' : `hearth-dim-${appearance.quietDimLevel}`;
+		document.body.classList.toggle('hearth-dim', dimmed && !appearance.quietFade);
 		document.body.classList.toggle(cls, dimmed);
 		return () => { document.body.classList.remove('hearth-dim'); document.body.classList.remove(cls); };
-	}, [dimmed, appearance.quietDimLevel]);
+	}, [dimmed, appearance.quietDimLevel, appearance.quietFade]);
 
 	// Home pressed (the launcher comes to the front): start again at the first tile.
 	// With "When Home is pressed" = the last app opened (PR #20): the highlight starts on that tile when it is in the row that shows

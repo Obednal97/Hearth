@@ -234,6 +234,7 @@ export function resetLook (c: UserConfig): UserConfig {
 		quietSec: RANGES.quietSec.def,        // P109: quiet mode, Home focus, tiles and input status are reset too
 		quietDimSec: RANGES.quietDimSec.def,
 		quietDimLevel: RANGES.quietDimLevel.def,
+		quietFade: false,
 		homeFocus: DEFAULT_CONFIG.homeFocus,
 		showLgHome: DEFAULT_CONFIG.showLgHome,
 		showSystem: DEFAULT_CONFIG.showSystem,
@@ -354,8 +355,10 @@ const BASE_PREFS: PrefDef[] = [
 		rangeValues('quietDimSec'), (c) => c.quietDimSec, (c, v) => ({...c, quietDimSec: v}), (v) => (v === 0 ? td('level.off') : td('time.seconds', {n: v}))), visible: (c) => c.quietSec > 0},
 	{...choice('quietPowerOff', 'look',
 		QUIET_POWEROFF_VALUES, (c) => c.quietPowerOff, (c, v) => ({...c, quietPowerOff: v}), powerOffText), visible: (c) => c.quietSec > 0},
+	{...choice('quietFade', 'look',             // local build: dim style
+		[false, true], (c) => c.quietFade, (c, v) => ({...c, quietFade: v}), (v) => td(v ? 'pref.quietFade.fade' : 'pref.quietFade.darken')), visible: (c) => c.quietSec > 0 && c.quietDimSec > 0},
 	{...choice('quietDimLevel', 'look',
-		rangeValues('quietDimLevel'), (c) => c.quietDimLevel, (c, v) => ({...c, quietDimLevel: v}), (v) => td('pref.darker', {n: v})), visible: (c) => c.quietSec > 0 && c.quietDimSec > 0},
+		rangeValues('quietDimLevel'), (c) => c.quietDimLevel, (c, v) => ({...c, quietDimLevel: v}), (v) => td('pref.darker', {n: v})), visible: (c) => c.quietSec > 0 && c.quietDimSec > 0 && !c.quietFade},
 	range('iconScale', 'look',
 		'iconScale', (c) => c.iconScale, (c, v) => ({...c, iconScale: v}), (v) => `${v}%`),
 	range('iconGap', 'look',
@@ -621,7 +624,7 @@ const LAYOUT: [PrefTab, string, string[]][] = [
 	['look', 'Icons', ['iconScale', 'tileShape', 'iconStyle', 'iconLight', 'iconColor', 'iconGap', 'iconOpacity']],
 	['look', 'Home row', ['rows', 'scrollSpeed', 'homeFocus', 'sideMargin', 'bottomMargin', 'inputStatus', 'showLgHome', 'showSystem', 'hideSettings']],
 	['look', 'Labels', ['showLabels', 'labelColor', 'labelFont', 'labelSize', 'labelWeight']],
-	['look', 'Quiet mode', ['quietSec', 'quietDimSec', 'quietDimLevel', 'quietPowerOff', 'oledShift']],
+	['look', 'Quiet mode', ['quietSec', 'quietDimSec', 'quietFade', 'quietDimLevel', 'quietPowerOff', 'oledShift']],
 	['look', 'Favourites', ['favSideMargin', 'favBottomMargin']],
 	['look', 'Recent apps', ['recentsSize']],
 	['look', '', ['resetLook']],
