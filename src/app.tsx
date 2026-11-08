@@ -31,6 +31,7 @@ import {HEARTH_VERSION} from './config/version';
 import {autoIcon, setEdit, type SourceEdit} from './lib/sourceicons';
 import {Toast, type ToastMessage} from './components/Toast';
 import {PhotoShow, Wallpaper} from './components/Wallpaper';
+import {useVideoWallpaper, withWallpaperChoice} from './components/VideoWallpaper';
 import type {TileModel} from './components/Tile';
 import {forgetTv, pairWithTv} from './lib/ssap';
 import {NOROOT_MOCK} from './config/features';
@@ -75,7 +76,7 @@ import {PACK_ID, isBundledLanguage} from './lib/languages';
 import {applyPref, disabledReason, essentialIds, findPref, homeReplacementOn, GROUP_PREFIX, optionsFor, resetLook, type Press, type PrefTab, type SystemInfo} from './lib/prefs';
 import {storeReport} from './lib/storeguard';
 import {setProbeContext} from './lib/probecontext';
-import {loadConfig, saveConfig, saveConfigVerified, setSaveFailHandler, isMonoStyle, effectiveIconStyle, hasLightTile, toggleId, DEFAULT_WALLPAPER, withBackedUpLook, dropPrefsBackup, type UserConfig} from './lib/storage';
+import {loadConfig, saveConfig, saveConfigVerified, setSaveFailHandler, isMonoStyle, effectiveIconStyle, hasLightTile, toggleId, withBackedUpLook, dropPrefsBackup, type UserConfig} from './lib/storage';
 import {readLastOpened, writeLastOpened} from './lib/homefocus';
 import {checkColdBoot, markOpened, openedThisPage} from './lib/coldstart';
 import {applyTheme, THEMES} from './theme/tokens';
@@ -601,8 +602,9 @@ export function App () {
 
 	const recentIcons = useMemo(() => { const m: Record<string, string | undefined> = {}; apps.forEach((a) => { m[a.id] = a.iconUrl; }); return m; }, [apps]);
 
+	const wall = useVideoWallpaper(config, screen === 'picker', (text) => showToast(text, 'error'));       // local build: moving backgrounds, picker preview
 	// The bundled-photo slideshow is drawn (and timed) by PhotoShow; it pauses while the launcher is in the background.
-	const photoShow = config.background === PHOTO_SHOW && config.wallpaper.mode === 'gradient';
+	const photoShow = wall.view.background === PHOTO_SHOW && wall.view.wallpaper.mode === 'gradient';
 
 	// W1 (user 2026-11-07): the wallpaper is never released while Hearth runs (one decoded photo, about 8 MB), so coming back from an app
 	// finds it ready: no rebuild, no second decode, no wipe. The slideshow only pauses its timer while hidden (`PhotoShow paused`).
@@ -1426,13 +1428,10 @@ export function App () {
 	const onAdjust = useCallback((optionId: string, direction: -1 | 1) => changeOption(optionId, direction < 0 ? 'left' : 'right'), [changeOption]);
 
 	const onChooseWallpaper = useCallback((choice: WallpaperChoice) => {
-		const keep = {intervalSec: config.wallpaper.intervalSec, shuffle: config.wallpaper.shuffle, fit: config.wallpaper.fit};
-		const wallpaper = choice.mode === 'gradient' || choice.mode === 'photos'
-			? {...DEFAULT_WALLPAPER, ...keep}
-			: {mode: choice.mode, path: choice.path, ...keep, recursive: choice.mode === 'folder' && !!choice.recursive};
-		updateConfig({...config, wallpaper, background: choice.mode === 'photos' ? PHOTO_SHOW : config.background});
+		wall.chose(choice);
+		updateConfig(withWallpaperChoice(config, choice));
 		setScreen('settings');
-		showToast(choice.mode === 'photos' ? tt('app.startingThePhotoSlideshow') : choice.mode === 'gradient' ? tt('app.builtInBackgroundRestored') : choice.mode === 'image' ? tt('app.loadingWallpaper') : tt('app.startingSlideshow'));
+		showToast(choice.mode === 'photos' ? tt('app.startingThePhotoSlideshow') : choice.mode === 'gradient' ? tt('app.builtInBackgroundRestored') : choice.mode === 'image' ? tt('app.loadingWallpaper') : choice.mode === 'video' ? tt('app.startingMovingBackground') : tt('app.startingSlideshow'));
 	}, [config, showToast]);
 
 	const onChooseSaver = useCallback((choice: WallpaperChoice) => {
@@ -1601,8 +1600,9 @@ export function App () {
 
 	return (
 		<>
-			{photoShow && <PhotoShow fit={config.wallpaper.fit === 'fit'} intervalSec={config.wallpaper.intervalSec} shuffle={config.wallpaper.shuffle} paused={asleep} />}
-			{!photoShow && <Wallpaper config={config.wallpaper} opacity={config.wallpaperOpacity} onProblem={(text) => showToast(text, 'error')} />}
+			{photoShow && <PhotoShow fit={wall.view.wallpaper.fit === 'fit'} intervalSec={wall.view.wallpaper.intervalSec} shuffle={wall.view.wallpaper.shuffle} paused={asleep} preview={wall.previewing} />}
+			{!photoShow && <Wallpaper config={wall.still} opacity={config.wallpaperOpacity} preview={wall.previewing} onProblem={(text) => { if (wall.videoMode) log(`video: poster: ${text}`); else showToast(text, 'error'); }} />}
+			{wall.video}
 			{/* Home stays mounted under the other screens so it keeps its focus position. */}
 			<Home items={homeItems} favourites={config.favourites} timeFormat={timeFormat} appearance={appearance} active={screen === 'home' && !menu && !recents && !notice} paused={asleep} onActivate={onActivate} onLongPress={onLongPress} onDeadDown={config.hideSettings && !tileBack ? showTileAgain : undefined} onBack={openRecents} wake={homeResets} homeKey={config.homeFocus === 'last' && !bootFirst.current ? lastOpened.current : null} focus={focus} weather={weatherLine} moveMode={moveMode} tileKeys={keysRef.current} onMovePick={onMovePick} onMoveStep={onMoveStep} onMoveExit={onMoveExit} continueItems={cw.items} onContinue={cw.open} />
 			{recents && screen === 'home' && <Recents icons={recentIcons} edits={config.appEdits} inputs={allInputs} sourceEdits={config.sourceEdits} width={config.recentsW} height={config.recentsH} onClose={closeRecents} onOpen={noteOpened} onToast={showToast} />}
@@ -1635,7 +1635,7 @@ export function App () {
 					onClose={() => setScreen('source')}
 				/>
 			)}
-			{screen === 'picker' && <Picker onChoose={onChooseWallpaper} onClose={() => setScreen('settings')} />}
+			{screen === 'picker' && <Picker onChoose={onChooseWallpaper} onPreview={wall.setPreview} onClose={() => setScreen('settings')} />}
 			{screen === 'essedit' && <EssentialsEdit chosen={essentialIds(config)} onChange={(list) => patchConfig({essentials: list})} onClose={() => setScreen('settings')} />}
 			{screen === 'preload' && <Preload apps={apps} onClose={() => setScreen('settings')} onChanged={(n) => setConfig((c) => { if (c.preloadOff === n) return c; const next = {...c, preloadOff: n}; saveConfig(next); return next; })} onToast={showToast} />}
 			{UPDATES_ENABLED && screen === 'updates' && <Updates debug={config.showDebug} paused={!!notice} notify={setNotice} closeNotice={() => setNotice(null)} onClose={() => setScreen('settings')} />}

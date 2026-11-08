@@ -6,7 +6,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "test:local": "node scripts/test-plex.mjs && node scripts/test-local-settings.mjs",
+    "test:local": "node scripts/test-plex.mjs && node scripts/test-videowall.mjs && node scripts/test-local-settings.mjs",
     "build": "node scripts/gen-bundled-languages.mjs && tsc --noEmit && vite build && node scripts/legacy.mjs",
     "package": "sh scripts/package.sh",
     "install:tv": "sh scripts/install.sh",

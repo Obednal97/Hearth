@@ -8,6 +8,7 @@ import {
 	clearWallpaperCache, listImages, loadPicture, readWallpaperCache, releasePicture, createShuffleOrder,
 	wallpaperCacheId, writeWallpaperCache, takeEarlyStatic, endEarlyStatic, readLastShown, writeLastShown
 } from '../lib/wallpaper';
+import {noteStill} from '../lib/videowall';
 import {t as tt} from '../i18n';
 import {inputIdle} from '../lib/inputidle';
 import {inNetFolder} from '../lib/netfoldercmd';
@@ -22,6 +23,8 @@ interface Props {
 	opacity?: number;
 	/** called (at most once per wallpaper choice) when pictures can't be shown; says why */
 	onProblem: (text: string) => void;
+	/** local build: a picker preview, which leaves the start-up copy alone */
+	preview?: boolean;
 }
 
 /** Full-screen background: the default (black, or the calm gradient) with a picture or
@@ -35,7 +38,7 @@ interface Props {
  *
  *  The slideshow pauses while the launcher is in the background. The picture from the copy appears at once
  *  (no fade); only a change from one slideshow picture to the next cross-fades. */
-export function Wallpaper ({config, opacity = 100, onProblem}: Props) {
+export function Wallpaper ({config, opacity = 100, onProblem, preview}: Props) {
 	const layerA = useRef<HTMLDivElement>(null);
 	const layerB = useRef<HTMLDivElement>(null);
 	const wrap = useRef<HTMLDivElement>(null);
@@ -88,7 +91,7 @@ export function Wallpaper ({config, opacity = 100, onProblem}: Props) {
 		const stopTimer = () => { window.clearTimeout(timer); timer = 0; if (cancelWait) { cancelWait(); cancelWait = null; } };
 
 		const saveCache = () => {
-			if (unsaved && snapshot && writeWallpaperCache(cacheId, snapshot)) unsaved = false;
+			if (!preview && unsaved && snapshot && writeWallpaperCache(cacheId, snapshot)) unsaved = false;
 		};
 
 		const release = (i: number) => {
@@ -173,7 +176,7 @@ export function Wallpaper ({config, opacity = 100, onProblem}: Props) {
 			busy = false;
 			if (!told) { told = true; report.current(text); }
 			retryLater();
-			if (inNetFolder(config.path)) { stopTimer(); clearWallpaperCache(); cacheKnown = false; hideAll(); }
+			if (inNetFolder(config.path)) { stopTimer(); if (!preview) clearWallpaperCache(); cacheKnown = false; hideAll(); }
 		};
 
 		const advance = () => {
@@ -227,7 +230,7 @@ export function Wallpaper ({config, opacity = 100, onProblem}: Props) {
 			position = (position + 1) % files.length;
 			const path = order ? order.take() : files[position];
 			if (!path) { fail(tt('wallpaper.noPicturesFoundInThat')); return; }
-			if (!order && config.mode === 'folder') writeLastShown(cacheId, path);          // p31b: a restart carries on after this one
+			if (!order && !preview && config.mode === 'folder') writeLastShown(cacheId, path);          // p31b: a restart carries on after this one
 			loadPicture(path).then(
 				(loaded) => {
 					busy = false;
@@ -236,6 +239,7 @@ export function Wallpaper ({config, opacity = 100, onProblem}: Props) {
 					if (order) order.shown(path);
 					show(loaded.url);
 					if (pending) { pending = false; retries = 0; log(`wallpaper: each visit, new picture shown ${Date.now() - dueAt} ms after it was due`); }
+					noteStill(path);                      // a moving background waits for its next poster (videowall.ts)
 					snapshot = loaded.snapshot;
 					unsaved = !!loaded.snapshot;
 					if (!cacheKnown) { saveCache(); cacheKnown = !unsaved; }    // the first picture is cached at once
@@ -258,11 +262,12 @@ export function Wallpaper ({config, opacity = 100, onProblem}: Props) {
 			lastError = '';
 			files = [];
 			order = null;
-			if (config.mode === 'gradient' || !config.path) { clearWallpaperCache(); hideAll(); return; }
+			if (config.mode === 'gradient' || !config.path) { if (!preview) clearWallpaperCache(); hideAll(); return; }
 
 			const cached = takeEarlyStatic(cacheId) || readWallpaperCache(cacheId);       // main.tsx may have read it already (P56)
 			if (cached) {                                          // instant: no shell work at all
 				show(cached, true);                 // already known: no fade-in at start-up
+				if (config.mode === 'image') noteStill(config.path);
 				window.requestAnimationFrame(() => window.requestAnimationFrame(() => {
 					endEarlyStatic();
 					if (config.mode === 'folder' && config.intervalSec === 0 && atRestart && !disposed) { if (document.hidden) { pending = true; dueAt = Date.now(); } else due('restart, first frames drawn'); }          // hidden: done on the first return          // p31c (user): Each visit after a restart: the saved picture shows first, the new one follows at once
@@ -317,7 +322,7 @@ export function Wallpaper ({config, opacity = 100, onProblem}: Props) {
 			document.removeEventListener('visibilitychange', onVisibility);
 			document.removeEventListener('hearth-visibility', onVisibility);
 		};
-	}, [config.mode, config.path, config.recursive, config.intervalSec, config.shuffle]);
+	}, [config.mode, config.path, config.recursive, config.intervalSec, config.shuffle, preview]);
 
 	const vars = varScope('wallpaper', {'--wallpaper-opacity': opacity < 100 ? String(opacity / 100) : undefined});
 
@@ -334,7 +339,7 @@ export function Wallpaper ({config, opacity = 100, onProblem}: Props) {
 /** The bundled-photo slideshow. Own component and own state, so a change of picture re-renders nothing else.
  *  The first photo appears at once; each next one is loaded and drawn invisibly for a moment (so the picture is
  *  already decoded), then fades in over the old one. Pauses while `paused` (launcher in the background). */
-export function PhotoShow ({intervalSec, shuffle, paused, fit}: {intervalSec: number; shuffle: boolean; paused: boolean; fit?: boolean}) {
+export function PhotoShow ({intervalSec, shuffle, paused, fit, preview}: {intervalSec: number; shuffle: boolean; paused: boolean; fit?: boolean; preview?: boolean}) {
 	const layerA = useRef<HTMLDivElement>(null);
 	const layerB = useRef<HTMLDivElement>(null);
 	const wrap = useRef<HTMLDivElement>(null);
@@ -343,7 +348,7 @@ export function PhotoShow ({intervalSec, shuffle, paused, fit}: {intervalSec: nu
 	const pending = useRef(false);          // p31: an Each visit change is due and no new photo is on screen yet (a re-run of the effect used to lose it)
 	const state = useRef({front: -1, index: firstPhoto >= 0 ? firstPhoto : Math.floor(Math.random() * PHOTO_IDS.length), busy: false});
 
-	useEffect(() => { clearWallpaperCache(); }, []);
+	useEffect(() => { if (!preview) clearWallpaperCache(); }, [preview]);
 
 	useEffect(() => {
 		const layers = [layerA.current as HTMLDivElement, layerB.current as HTMLDivElement];

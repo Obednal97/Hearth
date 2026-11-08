@@ -23,7 +23,7 @@ import {DEFAULT_CITY} from './cities';
 import {validCoords, type City, type TempUnit} from './weather';
 import {DEFAULT_LANGUAGE, languageId} from './languages';
 
-export type WallpaperMode = 'gradient' | 'image' | 'folder';
+export type WallpaperMode = 'gradient' | 'image' | 'folder' | 'video';        // local build: video (see videowall.ts)
 export type ClockFormat = 'tv' | '12h' | '24h';
 export type {ClockColor};
 export type ClockWeight = 200 | 300 | 400 | 500 | 600 | 700;
@@ -117,7 +117,16 @@ export interface WallpaperConfig {
 	recursive: boolean;
 	/** 2.0.2: 'fill' crops the picture to the screen (the look before 2.0.2), 'fit' shows the whole picture (the background shows at the sides); a missing value reads as 'fill' */
 	fit: 'fit' | 'fill';
+	/** local build, moving background from a folder: when the next video starts (see VIDEO_CHANGE_VALUES) */
+	videoChange: number;
+	/** local build, moving background: the dark glow behind the clock and the stronger bottom fade */
+	videoShade: boolean;
 }
+
+/** local build, "Change video": 0 = never, -1 = each time you come Home (after 5 min away), else seconds on screen. */
+export const VIDEO_CHANGE_VALUES: readonly number[] = [0, -1, 600, 1800, 3600];
+/** A path a moving background may use: absolute, no control characters, not absurdly long. */
+const videoPathOk = (path: string): boolean => path.charAt(0) === '/' && path.length < 400 && !/[\u0000-\u001f\u007f]/.test(path);
 
 /** Icon styles stored in `iconStyle`: 'original'; 'tinted' (P48: the artwork on a themed dark tile, no mask); all others draw the icon
  *  as a mask (Dark, Soft, Accent and Gradient mono, P39c). 'glyph' (2.0.3 W1): the same mask without a tile, Minimal's focus (larger only). */
@@ -303,7 +312,9 @@ export const DEFAULT_WALLPAPER: WallpaperConfig = {
 	intervalSec: 60,
 	shuffle: true,
 	recursive: false,
-	fit: 'fill'
+	fit: 'fill',
+	videoChange: -1,
+	videoShade: true
 };
 
 export const DEFAULT_WEATHER: WeatherConfig = {
@@ -503,8 +514,8 @@ export function loadConfig (): UserConfig {
 		const wx: Partial<WeatherConfig> = parsed.weather || DEFAULT_WEATHER;
 		const wc = wx.city as Partial<City> | null | undefined;
 		const city: City | null = wc && typeof wc.name === 'string' && wc.name && validCoords(wc.lat, wc.lon) ? {name: wc.name.slice(0, 60), lat: wc.lat as number, lon: wc.lon as number, detail: typeof wc.detail === 'string' ? wc.detail.slice(0, 80) : undefined} : null;
-		const mode: WallpaperMode = w.mode === 'image' || w.mode === 'folder' ? w.mode : 'gradient';
 		const path = typeof w.path === 'string' ? w.path : '';
+		const mode: WallpaperMode = w.mode === 'image' || w.mode === 'folder' || (w.mode === 'video' && videoPathOk(path)) ? w.mode : 'gradient';
 		const interval = typeof w.intervalSec === 'number' && (w.intervalSec === 0 || w.intervalSec >= 5) ? w.intervalSec : DEFAULT_WALLPAPER.intervalSec;
 		const out: UserConfig = {
 			defaultsV: DEFAULTS_VERSION,
@@ -614,7 +625,9 @@ export function loadConfig (): UserConfig {
 				intervalSec: interval,
 				shuffle: w.shuffle !== false,
 				recursive: mode === 'folder' && w.recursive === true,
-				fit: w.fit === 'fit' ? 'fit' : 'fill'
+				fit: w.fit === 'fit' ? 'fit' : 'fill',
+				videoChange: VIDEO_CHANGE_VALUES.indexOf(w.videoChange as number) !== -1 ? (w.videoChange as number) : DEFAULT_WALLPAPER.videoChange,
+				videoShade: w.videoShade !== false
 			}
 		};
 		if (parsed.defaultsV !== DEFAULTS_VERSION) {          // P41f: once per version, every saved look setting (own wallpaper included) goes back to the defaults
