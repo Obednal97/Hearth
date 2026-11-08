@@ -1171,6 +1171,11 @@ export const en = {
 	'app.startingMovingBackground': 'Starting the moving background…',
 	'picker.wallRootsHint': 'Move to preview · OK chooses · Back returns to Settings',
 	'picker.wallFolderHint': 'Move to preview · OK chooses · Back goes up',
+	// quiet mode: dim style
+	'pref.quietFade.label': 'Quiet mode: dim style',
+	'pref.quietFade.desc': 'Darken dims the whole screen. Fade the widgets keeps the wallpaper bright, dims the clock and hides the date and weather.',
+	'pref.quietFade.darken': 'Darken',
+	'pref.quietFade.fade': 'Fade the widgets',
 } as const;
 
 export type Key = keyof typeof en;

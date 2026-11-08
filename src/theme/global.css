@@ -955,3 +955,9 @@ html.hearth-video-shade .wallpaper__fade {
 .screen--picker-preview .picker__row { height: 90px; }
 .screen--picker-preview .picker__detail { font-size: 24px; }
 .hearth-picking .screen--settings { visibility: hidden; }
+
+/* Quiet mode, dim style "Fade the widgets" (Home.tsx, body.hearth-fade): the wallpaper stays bright, the clock dims and the
+   date, weather and widget backdrop fade out over 4 s; waking brings them back in 250 ms (a transition uses the target state's). */
+.clock__time, .clock__date, .clock__weather, .clock__scrim { transition: opacity 250ms ease-out; }
+.hearth-fade .clock__time { opacity: 0.35; transition: opacity 4s ease-in-out; }
+.hearth-fade .clock__date, .hearth-fade .clock__weather, .hearth-fade .clock__scrim { opacity: 0; transition: opacity 4s ease-in-out; }
