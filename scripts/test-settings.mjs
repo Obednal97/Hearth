@@ -118,7 +118,7 @@ store[KEY] = JSON.stringify({defaultsV: 1, iconLight: true}); eq(s.loadConfig().
 store[KEY] = JSON.stringify({defaultsV: 1, iconStyle: 'nope'}); eq([s.loadConfig().iconStyle, s.DEFAULT_CONFIG.iconStyle], ['original', 'original'], 'an unknown icon style falls back to original');
 store[KEY] = JSON.stringify({defaultsV: 1, minimal: true}); eq(s.loadConfig().minimal, true, 'the minimalist choice is read back');
 store[KEY] = JSON.stringify({defaultsV: 1, appEdits: {'a.b': {label: 'X'}, 'c.d': {icon: 'nope'}}}); eq(s.loadConfig().appEdits, {'a.b': {label: 'X'}}, 'app edits are read back and cleaned');
-eq(p.optionsFor('system', c0).map((o) => o.id).join(','), 'language,homeKey,remap,tvApps,noRootGuide,tvInput,replaceHome,samHome,powerOnApp,lgLogo,noUpdate,homeApp,preload,keepReady,keepRelaunch,showDebug', 'the System tab (P61b2: the Home button row moved to the Remote group): the TV app list first (shown only when not rooted), the helper script, the Home button, the power-on app, the LG logo, the experimental Home app row (P58c) and last the Debug tab switch (the TV-input row, 2.0.2, is one On/Off toggle)');
+eq(p.optionsFor('system', c0).map((o) => o.id).join(','), 'language,homeKey,remap,tvApps,noRootGuide,tvInput,replaceHome,samHome,powerOnApp,lgLogo,noUpdate,homeApp,preload,keepReady,keepRelaunch,continueWatching,plexAccount,showDebug', 'the System tab (P61b2: the Home button row moved to the Remote group): the TV app list first (shown only when not rooted), the helper script, the Home button, the power-on app, the LG logo, the experimental Home app row (P58c) and last the Debug tab switch (the TV-input row, 2.0.2, is one On/Off toggle)');
 eq(p.optionsFor('system', c0, {homeApp: null, homeHook: null, tvInput: true}).find((o) => o.id === 'tvInput').valueText, 'On', 'the TV-input row reads On when the TV lists Hearth (2.0.2)');
 eq(p.optionsFor('system', c0, {homeApp: null, homeHook: null, tvInput: false}).find((o) => o.id === 'tvInput').valueText, 'Off', 'and Off when it is not listed');
 eq(p.optionsFor('system', c0).some((o) => o.id === 'tvInput'), true, 'and is shown while the TV has not been asked')
@@ -253,7 +253,7 @@ eq(p.resetLook({...c0, clock: {...c0.clock, color: 'black', opacity: 30}}).clock
   q.resetRootState();
   eq(ids().includes('keepReady') || ids().includes('group:system:Memory'), true, 'P83: root unknown: the root groups show');
   q.noteExec(new Error('Service does not exist'));
-  eq(ids(), 'language,tvApps,noRootGuide,showDebug', 'P83/T0/P92: root failed (local build: no update check): language, the SSAP row, the no-root guide and the Debug switch, no group headers');
+  eq(ids(), 'language,tvApps,noRootGuide,continueWatching,plexAccount,showDebug', 'P83/T0/P92: root failed (local build: no update check): language, the SSAP row, the no-root guide, Continue Watching (Plex works over the network) and the Debug switch, no group headers');
   q.noteExec();
   eq(ids().includes('group:system:Memory'), true, 'P83: root works again: the groups return');
   q.resetRootState();

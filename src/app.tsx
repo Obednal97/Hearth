@@ -20,6 +20,8 @@ import {CityPicker} from './screens/CityPicker';
 import {Recents} from './screens/Recents';
 import {lazyTab} from './lib/lazytab';
 import {SourceEditor} from './screens/SourceEditor';
+import {PlexLink} from './screens/PlexLink';
+import {useContinueWatching} from './hooks/useContinueWatching';
 import {iconFromFile} from './lib/customicon';
 import {log, logLines, allLogLines} from './lib/log';
 import {noteLife, previousLife} from './lib/lifemark';
@@ -100,7 +102,7 @@ import {fetchWeather} from './lib/weathernet';
 import {FRESH_MS, isFresh, readWeatherCache, usableCached, weatherView, writeWeatherCache, type City, type WeatherData} from './lib/weather';
 import {CONNECT_APPS_NOTE} from './config/connectapps';
 
-type Screen = 'home' | 'settings' | 'picker' | 'saverpicker' | 'cities' | 'source' | 'iconpicker' | 'homekey' | 'preload' | 'poweron' | 'remote' | 'extrakeys' | 'themes' | 'languages' | 'updates';
+type Screen = 'home' | 'settings' | 'picker' | 'saverpicker' | 'cities' | 'source' | 'iconpicker' | 'homekey' | 'preload' | 'poweron' | 'remote' | 'extrakeys' | 'themes' | 'languages' | 'updates' | 'plexlink';
 
 const TAB = {apps: 'apps', sources: 'sources', appsSources: 'appsources', look: 'look', clock: 'clock', wallpaper: 'wallpaper', saver: 'saver', system: 'system', debug: 'debug', tests: 'tests'} as const;
 const MISC = {lgHome: 'lg-home', settings: 'settings', system: 'system-settings'} as const;
@@ -290,6 +292,7 @@ export function App () {
 		setToast({text, kind});
 		toastTimer.current = window.setTimeout(() => setToast(null), TIMING.toastMs);
 	}, []);
+	const cw = useContinueWatching(config, setConfig, wakes, showToast, setScreen);       // local build: Continue Watching (Plex)
 
 	// Phase 3a: the LG Home button job found no key device and opened Hearth with a request to learn it (lghome.ts); also read once at page start
 	const lgLearning = useRef(false);
@@ -1035,10 +1038,10 @@ export function App () {
 		lazyTab({id: TAB.clock, label: tt('app.widget'), items: [], shown: []}, {options: () => groupsOf('clock')}),
 		lazyTab({id: TAB.wallpaper, label: tt('app.wallpaper'), items: [], shown: []}, {options: () => groupsOf('wallpaper')}),
 		...(noRoot ? [] : [lazyTab({id: TAB.saver, label: tt('app.screenSaver'), items: [], shown: []}, {options: () => groupsOf('saver', systemInfo)})]),
-		lazyTab({id: TAB.system, label: tt('app.system'), items: [], shown: []}, {options: () => groupsOf('system', {...systemInfo, tvInput, powerOnNames})}),
+		lazyTab({id: TAB.system, label: tt('app.system'), items: [], shown: []}, {options: () => groupsOf('system', {...systemInfo, tvInput, powerOnNames, plexServer: cw.server})}),
 		...(config.showDebug ? [{id: TAB.debug, label: tt('app.debug'), items: [], shown: [], pages: debugPagesNow}] : []),
 		...(PROBE_ENABLED && config.showDebug ? [{id: TAB.tests, label: tt('app.tests'), items: [], shown: [], options: probeOptions(probe)}] : [])
-	], [apps, inputs, shownApps, shownInputs, config, systemInfo, tvInput, probe, debugPagesNow, openGroups, noRoot, powerOnNames, themeRev, langTick]);    // eslint-disable-line react-hooks/exhaustive-deps
+	], [apps, inputs, shownApps, shownInputs, config, systemInfo, tvInput, probe, debugPagesNow, openGroups, noRoot, powerOnNames, cw.server, themeRev, langTick]);    // eslint-disable-line react-hooks/exhaustive-deps
 
 	const editedSource = editKey ? inputs.filter((i) => i.appId === editKey)[0] : undefined;
 	const editedApp = editKey && !editedSource ? apps.filter((a) => a.id === editKey)[0] : undefined;
@@ -1114,6 +1117,7 @@ export function App () {
 		const blocked = disabledReason(optionId, systemInfo, config);
 		if (blocked) { showToast(blocked, 'error'); return; }
 		if (optionId === 'weatherOn' && !config.weather.city) { showToast(tt('app.chooseACityFirst')); setScreen('cities'); return; }
+		if (cw.onOption(optionId)) return;
 		if (optionId === 'keepReady' && press === 'ok' && !config.keepReady) {       // P73: a warning before it is turned on
 			setNotice({
 				title: tt('app.keepHearthReady'),
@@ -1628,7 +1632,7 @@ export function App () {
 			{wallpaperOn && photoShow && <PhotoShow fit={config.wallpaper.fit === 'fit'} intervalSec={config.wallpaper.intervalSec} shuffle={config.wallpaper.shuffle} paused={asleep} />}
 			{wallpaperOn && !photoShow && <Wallpaper config={config.wallpaper} opacity={config.wallpaperOpacity} onProblem={(text) => showToast(text, 'error')} />}
 			{/* Home stays mounted under the other screens so it keeps its focus position. */}
-			<Home items={homeItems} favourites={config.favourites} timeFormat={timeFormat} appearance={appearance} active={screen === 'home' && !menu && !recents && !notice} paused={asleep} onActivate={onActivate} onLongPress={onLongPress} onDeadDown={config.hideSettings && !tileBack ? showTileAgain : undefined} onBack={openRecents} wake={wakes} homeKey={config.homeFocus === 'last' && !bootFirst.current ? lastOpened.current : null} focus={focus} weather={weatherLine} moveMode={moveMode} tileKeys={keysRef.current} onMovePick={onMovePick} onMoveStep={onMoveStep} onMoveExit={onMoveExit} />
+			<Home items={homeItems} favourites={config.favourites} timeFormat={timeFormat} appearance={appearance} active={screen === 'home' && !menu && !recents && !notice} paused={asleep} onActivate={onActivate} onLongPress={onLongPress} onDeadDown={config.hideSettings && !tileBack ? showTileAgain : undefined} onBack={openRecents} wake={wakes} homeKey={config.homeFocus === 'last' && !bootFirst.current ? lastOpened.current : null} focus={focus} weather={weatherLine} moveMode={moveMode} tileKeys={keysRef.current} onMovePick={onMovePick} onMoveStep={onMoveStep} onMoveExit={onMoveExit} continueItems={cw.items} onContinue={cw.open} />
 			{recents && screen === 'home' && <Recents icons={recentIcons} edits={config.appEdits} inputs={allInputs} sourceEdits={config.sourceEdits} width={config.recentsW} height={config.recentsH} onClose={closeRecents} onOpen={noteOpened} onToast={showToast} />}
 			{/* Settings stays mounted under the picker so it keeps its tab. */}
 			{screen === 'settings' && settingsTab === TAB.clock && appearance.clock.show && !config.showDebug && <WidgetPreview now={previewNow} format={timeFormat} config={appearance.clock} weather={weatherLine} />}
@@ -1689,6 +1693,7 @@ export function App () {
 			)}
 			{screen === 'homekey' && <HomeKey model={config.remoteModel} onModel={onRemoteModel} onClose={() => setScreen('settings')} onChanged={(code) => setSystemInfo((previous) => ({...previous, homeKey: code}))} onToast={showToast}  onAuto={onAutoMap} paused={!!notice} />}
 			{screen === 'saverpicker' && <Picker forSaver onBuiltinVideo={onChooseSaverVideo} onChoose={onChooseSaver} onClose={() => setScreen('settings')} />}
+			{screen === 'plexlink' && <PlexLink onDone={cw.signedIn} onClose={() => setScreen('settings')} />}
 			{WEATHER_ENABLED && screen === 'cities' && <CityPicker allowShell={isWebOS()} onChoose={onChooseCity} onClose={() => setScreen('settings')} />}
 			{/* W2: last, so a pop-up is in front of every screen (all screens share one layer; the later one is on top) */}
 			{notice && <Notice title={notice.title} text={notice.text} buttons={notice.buttons} onBack={notice.onBack} />}
