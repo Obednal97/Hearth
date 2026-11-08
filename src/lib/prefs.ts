@@ -32,6 +32,7 @@ import {LANGUAGES, PACK_ID, languageLabel, languageOf} from './languages';
 import {hasPack, packName} from '../i18n/pack';
 import {td} from '../i18n';
 import {HEARTH_VERSION} from '../config/version';
+import {UPDATES_ENABLED} from '../config/local';
 
 export type PrefTab = 'essentials' | 'look' | 'clock' | 'wallpaper' | 'saver' | 'system';
 
@@ -470,7 +471,8 @@ const BASE_PREFS: PrefDef[] = [
 	{
 		// 2.0.3 R2-a: press-only update check (opens its own screen); the row shows the version in use
 		id: 'updates', tab: 'system', kind: 'action',
-		text: () => HEARTH_VERSION
+		text: () => HEARTH_VERSION,
+		visible: () => UPDATES_ENABLED          // local build: hidden (config/local.ts)
 	},
 	{
 		id: 'homeKey', tab: 'system', kind: 'action',
@@ -639,16 +641,18 @@ export const ESSENTIALS_DEFAULT: readonly string[] = ['theme', 'wallpaper', 'int
 /** Never offered in Essentials: rows that undo, reset, restore or delete things, and the edit row itself (it is always last). */
 export const ESSENTIALS_EXCLUDED: readonly string[] = ['undoAll', 'restoreLook', 'resetLook', 'themeRemove', 'languageRemove', 'essentialsEdit'];
 export const ESSENTIALS_EDIT = 'essentialsEdit';
+/** local build: rows switched off in config/local.ts are never in Essentials */
+const hiddenHere = (id: string): boolean => !UPDATES_ENABLED && id === 'updates';
 
 /** The row ids chosen for Essentials: the saved list or the default; unknown, excluded and repeated ids dropped. */
 export function essentialIds (config: UserConfig): string[] {
 	const list = config.essentials ? config.essentials : ESSENTIALS_DEFAULT;
-	return list.filter((id, i) => list.indexOf(id) === i && ESSENTIALS_EXCLUDED.indexOf(id) === -1 && !!findPref(id));
+	return list.filter((id, i) => list.indexOf(id) === i && ESSENTIALS_EXCLUDED.indexOf(id) === -1 && !!findPref(id) && !hiddenHere(id));
 }
 
 /** Every row that can be put in Essentials, in the order of the Settings tabs (the edit list's second half). */
 export function essentialChoices (): string[] {
-	return PREFS.filter((p) => ESSENTIALS_EXCLUDED.indexOf(p.id) === -1 && !!PLACE[p.id])
+	return PREFS.filter((p) => ESSENTIALS_EXCLUDED.indexOf(p.id) === -1 && !!PLACE[p.id] && !hiddenHere(p.id))
 		.sort((a, b) => PLACE[a.id].order - PLACE[b.id].order).map((p) => p.id);
 }
 

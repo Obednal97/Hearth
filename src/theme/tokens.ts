@@ -147,7 +147,7 @@ export const FONT = {
 	settingsTab: 26,
 	settingsButton: 22,
 	optionLabel: 26,
-	optionDescription: 20,
+	optionDescription: 22,         // local build: was 20
 	toast: 24
 } as const;
 

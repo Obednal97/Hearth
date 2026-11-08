@@ -16,6 +16,7 @@ import {PERF_TESTS} from './probeperf';
 import {MORE_TESTS} from './probemore';
 import {STORAGE_TESTS} from './probestorage';
 import {INSTALL_TESTS} from './probeinstall';
+import {UPDATES_ENABLED} from '../config/local';
 import {MAPPER_TESTS} from './probemapper';
 import {SAVER_PROBE_TESTS} from './probesaver';
 
@@ -198,7 +199,7 @@ function testOrder (t: ProbeTest): [number, string] {
 	return m ? [parseInt(m[1], 10), m[2]] : [9999, ''];
 }
 
-export const PROBE_TESTS: ProbeTest[] = BASE_TESTS.concat(SSAP_TESTS, KEY_TESTS, PERF_TESTS, MORE_TESTS, STORAGE_TESTS, INSTALL_TESTS, MAPPER_TESTS, SAVER_PROBE_TESTS)
+export const PROBE_TESTS: ProbeTest[] = BASE_TESTS.concat(SSAP_TESTS, KEY_TESTS, PERF_TESTS, MORE_TESTS, STORAGE_TESTS, UPDATES_ENABLED ? INSTALL_TESTS : [], MAPPER_TESTS, SAVER_PROBE_TESTS)
 	.map((t, i) => ({t, i, k: testOrder(t)}))
 	.sort((a, b) => a.k[0] - b.k[0] || (a.k[1] < b.k[1] ? -1 : a.k[1] > b.k[1] ? 1 : 0) || a.i - b.i)
 	.map((x) => x.t);
