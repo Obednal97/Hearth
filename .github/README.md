@@ -10,6 +10,8 @@ For what Hearth is, how to install it and how every setting works, read the [ups
 
 ![Home screen with a moving background and the Continue Watching row](screenshots/moving-background.webp)
 
+<sub>One 60-second background loop, sped up 8x.</sub>
+
 ## What this fork adds
 
 ### Continue Watching from Plex
@@ -97,7 +99,7 @@ The fork is a few commits on top of an upstream release tag, rebased onto each n
 - Our strings sit in one `local build` block at the end of `src/i18n/en.ts`, and our CSS in one section at the end of `src/theme/global.css`.
 - Our tests run from `test:local`; upstream's `test` line is untouched.
 - This page and its screenshots live in `.github/`, which GitHub shows in place of the root README, so upstream's `README.md` stays as it is.
-- The screenshots come from this build in a desktop browser at 1920x1080, with demo data: made-up titles, Hearth's bundled public-domain photos as card art, and our own generated abstract loops as the moving backgrounds.
+- The screenshots come from this build in a desktop browser at 1920x1080 (the moving clip is Hearth's screen laid over the source video), with demo data: made-up titles, Hearth's bundled public-domain photos as card art, and our own generated abstract loops as the moving backgrounds.
 
 ## Contributed upstream
 
