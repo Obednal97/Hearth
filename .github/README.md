@@ -6,7 +6,7 @@ A personal fork of **[Hearth for WebOS](https://github.com/rudra-avatar/Hearth)*
 
 For what Hearth is, how to install it and how every setting works, read the [upstream README](https://github.com/rudra-avatar/Hearth#readme) and the [Hearth guides](https://rudra-avatar.github.io/Hearth/). This page covers only what this fork adds or changes.
 
-**Base:** Hearth **2.1.5** plus 4 commits. Built and used daily on an LG webOS 4.5 TV (Chrome 53), rooted with the Homebrew Channel.
+**Base:** Hearth **2.2.0** plus 5 commits. Built and used daily on an LG webOS 4.5 TV (Chrome 53), rooted with the Homebrew Channel.
 
 ![Home screen with a moving background and the Continue Watching row](screenshots/moving-background.webp)
 
@@ -47,7 +47,7 @@ Use looping videos as the home screen background.
 ### Live-preview wallpaper picker
 
 - Moving the highlight shows that choice behind the list. Nothing is saved until you press OK, so opening the picker and pressing Back changes nothing.
-- 7 rows instead of 9, so the list fits a 1080p screen, on a dark panel with Settings hidden while you pick.
+- The list sits on a dark panel with Settings hidden while you pick.
 - Upstream's advice box is replaced by a one-line hint: *Move to preview, OK chooses, Back returns*.
 
 ![Wallpaper picker: upstream 2.1.5 next to this fork](screenshots/compare-picker.jpg)
@@ -67,12 +67,13 @@ It uses quiet mode's own timer and wake, so nothing else runs in the background.
 
 ## Changed defaults
 
-| | Upstream 2.1.5 | This fork |
+| | Upstream 2.2.0 | This fork |
 | --- | --- | --- |
 | Screen saver | On (rooted TVs) | Off. An explicit On is kept |
 | Check for updates | Shown | Hidden: it would install the plain upstream release over this build. Update by building this fork |
 | Option descriptions | 20 px | 22 px |
 | Line under each Settings and picker title | 19 px, muted | 26 px, easier to read from the sofa |
+| Reassign remote buttons (the key filter) | Taken out once; buttons must be mapped again with *Map additional keys* | Kept as it is, so buttons mapped with it keep working (`KEEP_KEY_FILTER`) |
 
 Everything else behaves exactly as upstream. The fork's new text is English only; in other languages those rows fall back to English.
 
