@@ -6,6 +6,7 @@
 import {log} from './log';
 import {removeRemap} from './remap';
 import type {UserConfig} from './storage';
+import {KEEP_KEY_FILTER} from '../config/local';
 
 const BACKUP_KEY = 'hearth-remap-backup-v1';
 const DONE_KEY = 'hearth-remap-retired';
@@ -17,6 +18,7 @@ export function oldButtonCount (c: UserConfig): number {
 
 /** Nothing to do: the filter was never used, or the clean-up has finished on this TV. */
 export function keyFilterRetired (c: UserConfig): boolean {
+	if (KEEP_KEY_FILTER) return true;          // local build: the filter stays (config/local.ts)
 	try {
 		if (localStorage.getItem(DONE_KEY) === '1') return true;
 	} catch { /* read again next time */ }

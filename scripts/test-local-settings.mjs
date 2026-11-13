@@ -86,5 +86,14 @@ eq(p.optionsFor('system', c0, {homeHook: null}, 'Plex').filter((o) => o.grouped)
 	eq(p.resetLook(fade).quietFade, false, 'Reset look goes back to Darken');
 }
 
+// ---- The old key filter stays (local build: upstream 2.2 retires it) ----
+{
+	const gone = new URL('../node_modules/.cache-local-remapgone-test.mjs', import.meta.url).pathname;
+	await build({entryPoints: [new URL('../src/lib/remapgone.ts', import.meta.url).pathname], bundle: true, format: 'esm', outfile: gone, platform: 'node', logLevel: 'error', plugins: [stubApps]});
+	const r = await import(gone);
+	const mapped = {...c0, remap: {on: true, keys: {Key_webOS_Netflix: {t: 'app', id: 'com.example.app'}}}, remapKept: true};
+	eq(r.keyFilterRetired(mapped), true, 'a TV with mapped buttons keeps its key filter: nothing is taken out');
+}
+
 console.log(fail ? `${fail} FAILED` : 'all ok');
 process.exit(fail ? 1 : 0);
